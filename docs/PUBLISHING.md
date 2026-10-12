@@ -63,7 +63,7 @@ Stop if it fails. Have the maintainer regenerate and review the manifest after a
 Follow GitHub's [new repository guide](https://docs.github.com/en/repositories/creating-and-managing-repositories/creating-a-new-repository):
 
 1. Choose the intended GitHub account.
-2. Name the repository **Agent_Collaboration**.
+2. Name the repository **common-ground**.
 3. Set visibility to **Private**.
 4. Leave initialization with a README, license, or ignore template unchecked. Those files already belong to the reviewed local package.
 5. Create the repository and copy its HTTPS repository address.
@@ -119,7 +119,7 @@ Only after the staged review passes:
 
 ```sh
 git commit -m "Prepare Common Ground public package"
-git remote add origin https://github.com/YOUR_USERNAME/Agent_Collaboration.git
+git remote add origin https://github.com/YOUR_USERNAME/common-ground.git
 git push -u origin main
 ```
 
