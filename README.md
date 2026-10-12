@@ -1,14 +1,66 @@
+<img src="static/common-ground.svg" alt="Common Ground logo" width="88" height="88">
+
 # Common Ground
 
-A local workspace for a human owner and AI agents to share conversations, track work, and keep an evidence-based project record.
+**Give your AI agents a shared project memory and a clear way to work together.**
 
-Common Ground gives each participant a distinct identity. Messages, decisions, tasks, knowledge, source snapshots, and personal drafts live in the project's local database. Agents contribute through the command-line interface or Model Context Protocol (MCP), a standard tool interface for agent clients.
+Common Ground is a local workspace for you and your AI agents. It brings conversations, tasks, decisions, evidence, and lessons into one project record. Each participant has its own identity, so you can see who proposed a change, who approved it, who did the work, and who checked it.
 
-Optional provider modules support explicit manual handoffs, local Ollama jobs, and remote OpenAI Responses jobs. Opening the workspace, reading a brief, or polling messages does not start a model. A participant name or read receipt does not prove that an agent understood the project.
+## Why use it?
+
+Working across several AI chats creates repeated work: copying context, explaining the same decision again, finding the latest answer, and checking whether two agents are changing the same thing. A long-running project also needs a record that survives a chat restart.
+
+Common Ground gives that work a place:
+
+- **Shared context:** record the project goal, current decisions, sources, and open tasks. A returning agent can read the brief and follow links to the full records.
+- **Clear responsibility:** give each task an owner, track its status, and record a review. Optional file claims can expose overlapping work when you configure a work policy.
+- **A useful project history:** keep proposals, approval, implementation evidence, corrections, and previous versions together.
+- **Lessons you can reuse:** save what worked, what failed, and the evidence behind it. Source-linked knowledge can be marked stale when its source changes.
+- **Human control:** maintain the Rules, choose conversation audiences, approve decisions, and review provider requests before sending them.
+
+The shared record acts like a project notebook that every permitted participant can consult. Its value grows as the team adds useful evidence and keeps the current state clear. It does not merge the agents' internal memories, train their models, or make them read or follow the record automatically.
 
 ![A fictional museum exhibition conversation](docs/screenshots/conversation.png)
 
 *All documentation examples and screenshots use a fictional museum exhibition.*
+
+## One agent or several?
+
+| Your situation | How Common Ground helps |
+| --- | --- |
+| You and one agent | Keep decisions, work, and lessons outside a single chat. Resume from a structured project record. |
+| Several agents with different roles | Share the same sources and decisions, assign distinct work, and make handoffs visible. |
+| An implementer and a reviewer | Keep the proposal, implementation evidence, review findings, and human decision together. |
+| A short, simple question | A normal chat may be enough. Maintaining a project board adds work. |
+
+More agents are useful when their tasks are independent or a second review adds value. More participants also add coordination, review effort, and possible model cost. Common Ground organizes those relationships; it does not prove that a larger team will be faster or more accurate.
+
+## A practical way to work
+
+1. **Set the shared context.** Record the goal, constraints, and approved Rules. Allow access only to the local source files the project needs.
+2. **Give each piece of work one owner.** Add the expected result and evidence to the task. Use another agent for a review when that review is useful.
+3. **Read before acting.** Have each agent use its own CLI or MCP identity to read the Rules, brief, relevant full records, and source evidence. A shortened brief is a starting point.
+4. **Return concrete work.** Record the result, what was checked, failures, and remaining uncertainty. A confident message or read receipt is not proof of correctness or understanding.
+5. **Review and decide.** Keep a proposal separate from human approval, completed implementation, and independent verification.
+6. **Improve the shared record.** Save a useful fact or lesson with its evidence. Update stale knowledge, preserve corrections, and make the next action clear.
+
+For example, in the fictional museum project, Scribe drafts object labels, Atlas checks the visitor route, and Prism reviews selected work. The Curator approves a common caption format. After a source changes, the team checks the linked knowledge before reusing it. A returning agent can see both the current decision and the earlier reasoning.
+
+Start with one human and one agent, a few real tasks, and one clear goal. Add roles and automation only when they solve a problem you have observed.
+
+## Benefits and tradeoffs
+
+| Benefit | What you need to account for |
+| --- | --- |
+| A persistent project record | Agents must read it and write useful updates. Missing context and incorrect claims still need human attention. |
+| Shared knowledge and lessons | Learning here means improving the record and the team's process. It is not automatic model training. |
+| Visible ownership and review | These take time. File claims coordinate work through the app; they do not block direct filesystem writes. |
+| Local project storage | The app does not encrypt it. Processes under the same operating-system account may access local state. |
+| Optional model providers | Explicit jobs can add cost and send selected context outside the computer. Review the prepared request first. |
+
+Messages, tasks, knowledge, decisions, and personal drafts live in the project's local database. Agents connect through the command-line interface (CLI) or Model Context Protocol (MCP), a standard tool interface for agent clients.
+
+Optional provider modules support manual handoffs, local Ollama jobs, and remote OpenAI Responses jobs. Opening the workspace, reading a brief, or polling messages does not start a model.
 
 ## What you can do
 
