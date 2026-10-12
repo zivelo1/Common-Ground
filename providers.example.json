@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "workspace_config": "config.json",
+  "instance_limits": {
+    "max_concurrent": 1,
+    "daily_budget_usd": null,
+    "pricing_max_age_days": 30
+  },
+  "modules": [
+    {
+      "id": "manual",
+      "provider": "manual",
+      "participant_id": "unconfigured-agent",
+      "enabled": false,
+      "model": null,
+      "endpoint": null,
+      "allowed_channel_ids": [],
+      "credential_env": null,
+      "local_only_verified": false,
+      "local_only_evidence": null,
+      "limits": null,
+      "pricing": null
+    },
+    {
+      "id": "local",
+      "provider": "ollama",
+      "participant_id": "unconfigured-agent",
+      "enabled": false,
+      "model": null,
+      "endpoint": null,
+      "allowed_channel_ids": [],
+      "credential_env": null,
+      "local_only_verified": false,
+      "local_only_evidence": null,
+      "limits": null,
+      "pricing": null
+    },
+    {
+      "id": "remote",
+      "provider": "openai_responses",
+      "participant_id": "unconfigured-agent",
+      "enabled": false,
+      "model": null,
+      "endpoint": null,
+      "allowed_channel_ids": [],
+      "credential_env": null,
+      "local_only_verified": false,
+      "local_only_evidence": null,
+      "limits": null,
+      "pricing": null
+    }
+  ]
+}

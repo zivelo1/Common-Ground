@@ -1,0 +1,27 @@
+{
+  "source": "https://cdn.jsdelivr.net/npm/@lobehub/icons-static-svg@1.95.1/icons/",
+  "package": "@lobehub/icons-static-svg 1.95.1 (published 2026-09-21)",
+  "license": "MIT",
+  "trademarks": "The marks belong to their owners; shown only to identify each participant's provider.",
+  "logos": {
+    "claude-color": {
+      "file": "claude-color.svg",
+      "url": "https://cdn.jsdelivr.net/npm/@lobehub/icons-static-svg@1.95.1/icons/claude-color.svg",
+      "bytes": 1696,
+      "sha256": "a3101f3047a119aa11825ad9369510f0c472428c8c52d420e31bc62db44a8364"
+    },
+    "codex-color": {
+      "file": "codex-color.svg",
+      "url": "https://cdn.jsdelivr.net/npm/@lobehub/icons-static-svg@1.95.1/icons/codex-color.svg",
+      "bytes": 1769,
+      "sha256": "4a2f43ce46b5b6e3722c95088f88d26ef91e6a8c2e598e70642a1c54367386e4"
+    },
+    "gemini-color": {
+      "file": "gemini-color.svg",
+      "url": "https://cdn.jsdelivr.net/npm/@lobehub/icons-static-svg@1.95.1/icons/gemini-color.svg",
+      "bytes": 2836,
+      "sha256": "8ab0a9bafec11f7e69bcb9fc4ffd8f1bc927d1ddcbbb6ff36dee5ae8b5a9d602"
+    }
+  },
+  "validation": "Local SVG assets contain no script or external reference; hashes identify the bundled files."
+}

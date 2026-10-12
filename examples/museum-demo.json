@@ -1,0 +1,956 @@
+{
+  "description": "Entirely fictional Aurora Museum exhibition coordination. UI demonstration only; no model or backend is started.",
+  "state": {
+    "workspace": {
+      "title": "Aurora Museum",
+      "project_label": "Fictional museum demo"
+    },
+    "me": {
+      "id": "curator",
+      "name": "Curator",
+      "kind": "human"
+    },
+    "participants": [
+      {
+        "id": "curator",
+        "name": "Curator",
+        "kind": "human"
+      },
+      {
+        "id": "atlas",
+        "name": "Atlas",
+        "kind": "agent"
+      },
+      {
+        "id": "scribe",
+        "name": "Scribe",
+        "kind": "agent"
+      },
+      {
+        "id": "prism",
+        "name": "Prism",
+        "kind": "agent"
+      }
+    ],
+    "channels": [
+      {
+        "id": "workspace",
+        "title": "Exhibition coordination",
+        "kind": "shared",
+        "members": [
+          "curator",
+          "atlas",
+          "scribe",
+          "prism"
+        ],
+        "unread": 0,
+        "read_markers": {
+          "atlas": 106,
+          "scribe": 106,
+          "prism": 104
+        }
+      },
+      {
+        "id": "research",
+        "title": "Label research",
+        "kind": "private",
+        "members": [
+          "curator",
+          "scribe"
+        ],
+        "unread": 2,
+        "read_markers": {}
+      },
+      {
+        "id": "design",
+        "title": "Gallery design",
+        "kind": "group",
+        "members": [
+          "curator",
+          "atlas",
+          "prism"
+        ],
+        "unread": 1,
+        "read_markers": {}
+      }
+    ],
+    "tasks": [
+      {
+        "id": "labels",
+        "title": "Review the 42 object labels",
+        "body": "Apply the caption checklist, then ask Prism to review the twelve most complex labels.",
+        "status": "working",
+        "author_id": "scribe",
+        "channel_id": "workspace",
+        "created_at": "2030-05-14T08:00:00+00:00",
+        "updated_at": "2030-05-14T09:15:00+00:00",
+        "version": 1,
+        "owner_id": "scribe",
+        "priority": "high",
+        "due_date": "2030-05-17"
+      },
+      {
+        "id": "route",
+        "title": "Verify the step-free visitor route",
+        "body": "Check entrance width, turning space and the route to every gallery. Attach the review notes.",
+        "status": "working",
+        "author_id": "atlas",
+        "channel_id": "workspace",
+        "created_at": "2030-05-14T08:00:00+00:00",
+        "updated_at": "2030-05-14T09:15:00+00:00",
+        "version": 1,
+        "owner_id": "atlas",
+        "priority": "high",
+        "due_date": "2030-05-16"
+      },
+      {
+        "id": "lighting",
+        "title": "Approve the Gallery C lighting study",
+        "body": "Compare the two lighting layouts. Keep the conservation limit visible in the decision record.",
+        "status": "blocked",
+        "author_id": "prism",
+        "channel_id": "workspace",
+        "created_at": "2030-05-14T08:00:00+00:00",
+        "updated_at": "2030-05-14T09:15:00+00:00",
+        "version": 1,
+        "owner_id": "prism",
+        "priority": "high",
+        "due_date": "2030-05-18"
+      },
+      {
+        "id": "guides",
+        "title": "Rehearse three guided routes",
+        "body": "Run the family, discovery and quiet-preview routes. Record the actual duration of each rehearsal.",
+        "status": "open",
+        "author_id": "curator",
+        "channel_id": "workspace",
+        "created_at": "2030-05-14T08:00:00+00:00",
+        "updated_at": "2030-05-14T09:15:00+00:00",
+        "version": 1,
+        "owner_id": "curator",
+        "priority": "normal",
+        "due_date": "2030-05-19"
+      },
+      {
+        "id": "signs",
+        "title": "Prepare the multilingual sign set",
+        "body": "Use the approved room names and add the large-print visitor map.",
+        "status": "open",
+        "author_id": "prism",
+        "channel_id": "workspace",
+        "created_at": "2030-05-14T08:00:00+00:00",
+        "updated_at": "2030-05-14T09:15:00+00:00",
+        "version": 1,
+        "owner_id": "prism",
+        "priority": "normal",
+        "due_date": "2030-05-18"
+      },
+      {
+        "id": "capacity",
+        "title": "Resolve the Gallery B capacity change",
+        "body": "Replace the older capacity claim only after the new floor plan has been independently reviewed.",
+        "status": "blocked",
+        "author_id": "atlas",
+        "channel_id": "workspace",
+        "created_at": "2030-05-14T08:00:00+00:00",
+        "updated_at": "2030-05-14T09:15:00+00:00",
+        "version": 1,
+        "owner_id": "atlas",
+        "priority": "high",
+        "due_date": "2030-05-16"
+      },
+      {
+        "id": "timetable",
+        "title": "Publish the installation timetable",
+        "body": "Separate placement, safety checks and guide rehearsal. Include a named owner for each block.",
+        "status": "done",
+        "author_id": "atlas",
+        "channel_id": "workspace",
+        "created_at": "2030-05-14T08:00:00+00:00",
+        "updated_at": "2030-05-14T09:15:00+00:00",
+        "version": 1,
+        "owner_id": "atlas",
+        "priority": "normal",
+        "due_date": "2030-05-15"
+      },
+      {
+        "id": "catalogue",
+        "title": "Proofread the exhibition catalogue",
+        "body": "Check object titles, section headings and references against the final caption register.",
+        "status": "open",
+        "author_id": "scribe",
+        "channel_id": "workspace",
+        "created_at": "2030-05-14T08:00:00+00:00",
+        "updated_at": "2030-05-14T09:15:00+00:00",
+        "version": 1,
+        "owner_id": "scribe",
+        "priority": "normal",
+        "due_date": "2030-05-20"
+      },
+      {
+        "id": "audio",
+        "title": "Prepare accessible audio descriptions",
+        "body": "Draft descriptions for twelve focal objects. Review clarity before recording any narration.",
+        "status": "working",
+        "author_id": "scribe",
+        "channel_id": "workspace",
+        "created_at": "2030-05-14T08:00:00+00:00",
+        "updated_at": "2030-05-14T09:15:00+00:00",
+        "version": 1,
+        "owner_id": "scribe",
+        "priority": "normal",
+        "due_date": "2030-05-18"
+      },
+      {
+        "id": "preview",
+        "title": "Schedule the quiet preview",
+        "body": "Reserve a low-noise opening hour and brief the visitor team on the agreed route.",
+        "status": "done",
+        "author_id": "curator",
+        "channel_id": "workspace",
+        "created_at": "2030-05-14T08:00:00+00:00",
+        "updated_at": "2030-05-14T09:15:00+00:00",
+        "version": 1,
+        "owner_id": "curator",
+        "priority": "normal",
+        "due_date": "2030-05-15"
+      }
+    ],
+    "decisions": [
+      {
+        "id": "quiet-hour",
+        "title": "Offer a quiet preview before opening night",
+        "body": "Open the galleries one hour early for visitors who prefer a quieter experience.",
+        "status": "verified",
+        "author_id": "atlas",
+        "channel_id": "workspace",
+        "created_at": "2030-05-14T08:00:00+00:00",
+        "updated_at": "2030-05-14T09:15:00+00:00",
+        "version": 1,
+        "source": "Fictional accessibility review",
+        "evidence": "The visitor timetable and sign set include the preview. Prism checked both.",
+        "approved_by": "curator",
+        "implemented_by": "atlas",
+        "verified_by": "prism"
+      },
+      {
+        "id": "caption-format",
+        "title": "Use one caption format throughout the galleries",
+        "body": "Lead with a short discovery sentence, then provide an optional detail paragraph.",
+        "status": "implemented",
+        "author_id": "scribe",
+        "channel_id": "workspace",
+        "created_at": "2030-05-14T08:00:00+00:00",
+        "updated_at": "2030-05-14T09:15:00+00:00",
+        "version": 1,
+        "source": "Fictional caption checklist",
+        "evidence": "42 drafts use the approved format; independent review is still due.",
+        "approved_by": "curator",
+        "implemented_by": "scribe"
+      },
+      {
+        "id": "lighting-choice",
+        "title": "Choose the low-glare Gallery C layout",
+        "body": "Prefer the low-glare layout if the conservation and readability checks both pass.",
+        "status": "approved",
+        "author_id": "prism",
+        "channel_id": "workspace",
+        "created_at": "2030-05-14T08:00:00+00:00",
+        "updated_at": "2030-05-14T09:15:00+00:00",
+        "version": 1,
+        "source": "Fictional lighting study",
+        "evidence": "Human approval is recorded. The installation and its final check are still pending.",
+        "approved_by": "curator"
+      },
+      {
+        "id": "capacity-proposal",
+        "title": "Increase Gallery B entrance slots",
+        "body": "Use the revised 96-person capacity after the floor plan receives an independent check.",
+        "status": "proposed",
+        "author_id": "atlas",
+        "channel_id": "workspace",
+        "created_at": "2030-05-14T08:00:00+00:00",
+        "updated_at": "2030-05-14T09:15:00+00:00",
+        "version": 1,
+        "source": "Fictional installation plan, revision 2",
+        "evidence": "This is a proposal. The previous 80-person claim remains visible as stale history."
+      }
+    ],
+    "knowledge": [
+      {
+        "id": "opening-context",
+        "title": "Opening night: one coordinated plan",
+        "body": "Prepare six galleries, 42 object labels and three guided routes. All names, dates, figures and outcomes in this example are fictional.",
+        "status": "documented",
+        "author_id": "scribe",
+        "channel_id": "workspace",
+        "created_at": "2030-05-14T08:00:00+00:00",
+        "updated_at": "2030-05-14T09:15:00+00:00",
+        "version": 1,
+        "kind": "context",
+        "source": "Fictional exhibition brief, section 1",
+        "evidence": "Curator approved the exhibition scope. Individual changes still use the decision register.",
+        "source_refs": [
+          {
+            "source_id": "exhibition-brief",
+            "sha256": "4c16de7bf7a9a3121fbc3a8a7576824e2e494be984bbd7a2c549662ca7f2f6ac"
+          }
+        ],
+        "stale": false
+      },
+      {
+        "id": "access-fact",
+        "title": "A complete step-free visitor route",
+        "body": "Every public gallery connects through the east entrance. A quiet preview runs before the opening reception.",
+        "status": "documented",
+        "author_id": "scribe",
+        "channel_id": "workspace",
+        "created_at": "2030-05-14T08:00:00+00:00",
+        "updated_at": "2030-05-14T09:15:00+00:00",
+        "version": 1,
+        "kind": "fact",
+        "source": "Fictional accessibility review",
+        "evidence": "Atlas checked the route diagram; Prism independently checked the revised visitor signs.",
+        "source_refs": [
+          {
+            "source_id": "accessibility-review",
+            "sha256": "86a27f478ae6f6f76b5075c63c188025c699b5518b161ac7760afe896e121af3"
+          }
+        ],
+        "stale": false
+      },
+      {
+        "id": "label-lesson",
+        "title": "Short labels survived the readability check",
+        "body": "The first drafts averaged 112 words. The revised labels average 68 words and put the main discovery in the first sentence.",
+        "status": "documented",
+        "author_id": "scribe",
+        "channel_id": "workspace",
+        "created_at": "2030-05-14T08:00:00+00:00",
+        "updated_at": "2030-05-14T09:15:00+00:00",
+        "version": 1,
+        "kind": "lesson",
+        "outcome": "worked",
+        "source": "Fictional caption review, round 2",
+        "evidence": "Scribe compared 12 sample labels with the agreed reading checklist. The remaining labels still need review.",
+        "source_refs": [],
+        "stale": false
+      },
+      {
+        "id": "delivery-lesson",
+        "title": "Separate installation from visitor preparation",
+        "body": "Combining artwork placement and guide rehearsal created a queue at Gallery C. Separate time blocks removed that conflict in the rehearsal.",
+        "status": "documented",
+        "author_id": "scribe",
+        "channel_id": "workspace",
+        "created_at": "2030-05-14T08:00:00+00:00",
+        "updated_at": "2030-05-14T09:15:00+00:00",
+        "version": 1,
+        "kind": "lesson",
+        "outcome": "failed",
+        "source": "Fictional installation rehearsal notes",
+        "evidence": "Record the scheduling conflict and its correction so the next shift does not repeat it.",
+        "source_refs": [],
+        "stale": false
+      },
+      {
+        "id": "capacity-old",
+        "title": "Gallery B capacity needs a fresh check",
+        "body": "An earlier plan listed 80 visitors. The revised layout lists 96. Read the latest installation plan before allocating entrance slots.",
+        "status": "proposed",
+        "author_id": "atlas",
+        "channel_id": "workspace",
+        "created_at": "2030-05-14T08:00:00+00:00",
+        "updated_at": "2030-05-14T09:15:00+00:00",
+        "version": 1,
+        "kind": "fact",
+        "source": "Fictional installation plan, older snapshot",
+        "evidence": "The old capacity claim is retained as history, not used as a new instruction.",
+        "source_refs": [
+          {
+            "source_id": "installation-plan",
+            "sha256": "68241ac382b7d3cf2147bbc90f0dd8c73dc48b3900897d4818d6cf92992985e7"
+          }
+        ],
+        "stale": true,
+        "stale_reasons": [
+          "The referenced installation snapshot changed."
+        ],
+        "conflicts_with": []
+      },
+      {
+        "id": "working-rule",
+        "title": "One owner, one independent reviewer",
+        "body": "Each installation task names one owner. Safety and accessibility changes require a second person to verify the result.",
+        "status": "documented",
+        "author_id": "scribe",
+        "channel_id": "workspace",
+        "created_at": "2030-05-14T08:00:00+00:00",
+        "updated_at": "2030-05-14T09:15:00+00:00",
+        "version": 1,
+        "kind": "context",
+        "source": "Fictional museum working rules",
+        "evidence": "Curator saved the collaboration rules as version 3.",
+        "source_refs": [],
+        "stale": false
+      }
+    ],
+    "sources": [
+      {
+        "id": "exhibition-brief",
+        "title": "Exhibition brief",
+        "path": "examples/museum/exhibition-brief.md",
+        "channel_id": "workspace",
+        "status": "current",
+        "version": 2,
+        "sha256": "4c16de7bf7a9a3121fbc3a8a7576824e2e494be984bbd7a2c549662ca7f2f6ac",
+        "checked_at": "2030-05-14T09:15:00+00:00",
+        "error": null
+      },
+      {
+        "id": "accessibility-review",
+        "title": "Accessibility review",
+        "path": "examples/museum/accessibility-review.md",
+        "channel_id": "workspace",
+        "status": "current",
+        "version": 2,
+        "sha256": "86a27f478ae6f6f76b5075c63c188025c699b5518b161ac7760afe896e121af3",
+        "checked_at": "2030-05-14T09:15:00+00:00",
+        "error": null
+      },
+      {
+        "id": "installation-plan",
+        "title": "Installation plan",
+        "path": "examples/museum/installation-plan.md",
+        "channel_id": "workspace",
+        "status": "current",
+        "version": 2,
+        "sha256": "f0a2d2a766f7d374693e08a7f702624f02cbd1850945c4003c01e56c8b7be8fa",
+        "checked_at": "2030-05-14T09:15:00+00:00",
+        "error": null
+      }
+    ],
+    "task_options": {
+      "priorities": {
+        "low": "Low",
+        "normal": "Normal",
+        "high": "High",
+        "urgent": "Urgent"
+      },
+      "statuses": {
+        "open": "Open",
+        "working": "In progress",
+        "blocked": "Blocked",
+        "done": "Done"
+      },
+      "default_priority": "normal"
+    },
+    "capabilities": {
+      "file_claims": true
+    }
+  },
+  "messages": [
+    {
+      "id": 101,
+      "channel_id": "workspace",
+      "author_id": "curator",
+      "author_name": "Curator",
+      "body": "## Opening night: the next three priorities\n**Atlas:** check the visitor route. **Scribe:** finish the caption review. **Prism:** prepare the lighting comparison.\nKeep each result with its evidence; proposals still need approval.",
+      "created_at": "2030-05-14T08:30:00+00:00",
+      "version": 1,
+      "can_edit": false
+    },
+    {
+      "id": 102,
+      "channel_id": "workspace",
+      "author_id": "atlas",
+      "author_name": "Atlas",
+      "body": "### Visitor route review\nThe step-free route reaches all **six galleries**. Two signs need larger text.\n- East entrance: clear\n- Gallery C turning space: checked\n- Quiet-preview route: ready for a second review",
+      "created_at": "2030-05-14T08:42:00+00:00",
+      "version": 1,
+      "can_edit": false
+    },
+    {
+      "id": 103,
+      "channel_id": "workspace",
+      "author_id": "scribe",
+      "author_name": "Scribe",
+      "body": "The caption register now contains **42 object labels**. Twelve complex labels are flagged for Prism.\nThe first review reduced the average length from 112 to 68 words. I recorded both the outcome and the remaining work in Knowledge.",
+      "created_at": "2030-05-14T08:55:00+00:00",
+      "version": 1,
+      "can_edit": false
+    },
+    {
+      "id": 104,
+      "channel_id": "workspace",
+      "author_id": "prism",
+      "author_name": "Prism",
+      "body": "I compared the two lighting layouts. The **low-glare option** is easier to read, but the conservation check is still pending.\nI have kept the lighting task blocked rather than marking it complete.",
+      "created_at": "2030-05-14T09:03:00+00:00",
+      "version": 1,
+      "can_edit": false
+    },
+    {
+      "id": 105,
+      "channel_id": "workspace",
+      "author_id": "curator",
+      "author_name": "Curator",
+      "body": "**Approved:** keep the quiet preview and the common caption format.\n**Still open:** Gallery B capacity and the lighting check. Please use the decision register before changing either plan.",
+      "created_at": "2030-05-14T09:10:00+00:00",
+      "version": 1,
+      "can_edit": false
+    },
+    {
+      "id": 106,
+      "channel_id": "workspace",
+      "author_id": "curator",
+      "author_name": "Curator",
+      "body": "**Fictional museum demo** · The installation timetable is ready. ✅\nAtlas and Scribe have received the handover. Prism will verify the final sign set next.\n**Today’s check:** reconcile the brief, source dates and open tasks before the next shift.",
+      "created_at": "2030-05-14T09:15:00+00:00",
+      "version": 1,
+      "can_edit": false
+    }
+  ],
+  "source_scan": {
+    "checked_at": "2030-05-14T09:15:00+00:00",
+    "age_seconds": 0,
+    "available_count": 3,
+    "configured_count": 3,
+    "issues": []
+  },
+  "brief": {
+    "workspace": {
+      "title": "Aurora Museum",
+      "project_label": "Fictional museum demo"
+    },
+    "me": {
+      "id": "curator",
+      "name": "Curator",
+      "kind": "human"
+    },
+    "generated_at": "2030-05-14T09:15:00+00:00",
+    "scope": {
+      "channel_ids": [
+        "workspace"
+      ]
+    },
+    "context": [
+      {
+        "id": "opening-context",
+        "title": "Opening night: one coordinated plan",
+        "body": "Prepare six galleries, 42 object labels and three guided routes. All names, dates, figures and outcomes in this example are fictional.",
+        "status": "documented",
+        "author_id": "scribe",
+        "channel_id": "workspace",
+        "created_at": "2030-05-14T08:00:00+00:00",
+        "updated_at": "2030-05-14T09:15:00+00:00",
+        "version": 1,
+        "kind": "context",
+        "source": "Fictional exhibition brief, section 1",
+        "evidence": "Curator approved the exhibition scope. Individual changes still use the decision register.",
+        "source_refs": [
+          {
+            "source_id": "exhibition-brief",
+            "sha256": "4c16de7bf7a9a3121fbc3a8a7576824e2e494be984bbd7a2c549662ca7f2f6ac"
+          }
+        ],
+        "stale": false
+      },
+      {
+        "id": "working-rule",
+        "title": "One owner, one independent reviewer",
+        "body": "Each installation task names one owner. Safety and accessibility changes require a second person to verify the result.",
+        "status": "documented",
+        "author_id": "scribe",
+        "channel_id": "workspace",
+        "created_at": "2030-05-14T08:00:00+00:00",
+        "updated_at": "2030-05-14T09:15:00+00:00",
+        "version": 1,
+        "kind": "context",
+        "source": "Fictional museum working rules",
+        "evidence": "Curator saved the collaboration rules as version 3.",
+        "source_refs": [],
+        "stale": false
+      }
+    ],
+    "knowledge": [
+      {
+        "id": "access-fact",
+        "title": "A complete step-free visitor route",
+        "body": "Every public gallery connects through the east entrance. A quiet preview runs before the opening reception.",
+        "status": "documented",
+        "author_id": "scribe",
+        "channel_id": "workspace",
+        "created_at": "2030-05-14T08:00:00+00:00",
+        "updated_at": "2030-05-14T09:15:00+00:00",
+        "version": 1,
+        "kind": "fact",
+        "source": "Fictional accessibility review",
+        "evidence": "Atlas checked the route diagram; Prism independently checked the revised visitor signs.",
+        "source_refs": [
+          {
+            "source_id": "accessibility-review",
+            "sha256": "86a27f478ae6f6f76b5075c63c188025c699b5518b161ac7760afe896e121af3"
+          }
+        ],
+        "stale": false
+      }
+    ],
+    "lessons": [
+      {
+        "id": "label-lesson",
+        "title": "Short labels survived the readability check",
+        "body": "The first drafts averaged 112 words. The revised labels average 68 words and put the main discovery in the first sentence.",
+        "status": "documented",
+        "author_id": "scribe",
+        "channel_id": "workspace",
+        "created_at": "2030-05-14T08:00:00+00:00",
+        "updated_at": "2030-05-14T09:15:00+00:00",
+        "version": 1,
+        "kind": "lesson",
+        "outcome": "worked",
+        "source": "Fictional caption review, round 2",
+        "evidence": "Scribe compared 12 sample labels with the agreed reading checklist. The remaining labels still need review.",
+        "source_refs": [],
+        "stale": false
+      },
+      {
+        "id": "delivery-lesson",
+        "title": "Separate installation from visitor preparation",
+        "body": "Combining artwork placement and guide rehearsal created a queue at Gallery C. Separate time blocks removed that conflict in the rehearsal.",
+        "status": "documented",
+        "author_id": "scribe",
+        "channel_id": "workspace",
+        "created_at": "2030-05-14T08:00:00+00:00",
+        "updated_at": "2030-05-14T09:15:00+00:00",
+        "version": 1,
+        "kind": "lesson",
+        "outcome": "failed",
+        "source": "Fictional installation rehearsal notes",
+        "evidence": "Record the scheduling conflict and its correction so the next shift does not repeat it.",
+        "source_refs": [],
+        "stale": false
+      }
+    ],
+    "disputed": [],
+    "stale": [
+      {
+        "id": "capacity-old",
+        "title": "Gallery B capacity needs a fresh check",
+        "body": "An earlier plan listed 80 visitors. The revised layout lists 96. Read the latest installation plan before allocating entrance slots.",
+        "status": "proposed",
+        "author_id": "atlas",
+        "channel_id": "workspace",
+        "created_at": "2030-05-14T08:00:00+00:00",
+        "updated_at": "2030-05-14T09:15:00+00:00",
+        "version": 1,
+        "kind": "fact",
+        "source": "Fictional installation plan, older snapshot",
+        "evidence": "The old capacity claim is retained as history, not used as a new instruction.",
+        "source_refs": [
+          {
+            "source_id": "installation-plan",
+            "sha256": "68241ac382b7d3cf2147bbc90f0dd8c73dc48b3900897d4818d6cf92992985e7"
+          }
+        ],
+        "stale": true,
+        "stale_reasons": [
+          "The referenced installation snapshot changed."
+        ],
+        "conflicts_with": []
+      }
+    ],
+    "decisions": [
+      {
+        "id": "quiet-hour",
+        "title": "Offer a quiet preview before opening night",
+        "body": "Open the galleries one hour early for visitors who prefer a quieter experience.",
+        "status": "verified",
+        "author_id": "atlas",
+        "channel_id": "workspace",
+        "created_at": "2030-05-14T08:00:00+00:00",
+        "updated_at": "2030-05-14T09:15:00+00:00",
+        "version": 1,
+        "source": "Fictional accessibility review",
+        "evidence": "The visitor timetable and sign set include the preview. Prism checked both.",
+        "approved_by": "curator",
+        "implemented_by": "atlas",
+        "verified_by": "prism"
+      },
+      {
+        "id": "caption-format",
+        "title": "Use one caption format throughout the galleries",
+        "body": "Lead with a short discovery sentence, then provide an optional detail paragraph.",
+        "status": "implemented",
+        "author_id": "scribe",
+        "channel_id": "workspace",
+        "created_at": "2030-05-14T08:00:00+00:00",
+        "updated_at": "2030-05-14T09:15:00+00:00",
+        "version": 1,
+        "source": "Fictional caption checklist",
+        "evidence": "42 drafts use the approved format; independent review is still due.",
+        "approved_by": "curator",
+        "implemented_by": "scribe"
+      },
+      {
+        "id": "lighting-choice",
+        "title": "Choose the low-glare Gallery C layout",
+        "body": "Prefer the low-glare layout if the conservation and readability checks both pass.",
+        "status": "approved",
+        "author_id": "prism",
+        "channel_id": "workspace",
+        "created_at": "2030-05-14T08:00:00+00:00",
+        "updated_at": "2030-05-14T09:15:00+00:00",
+        "version": 1,
+        "source": "Fictional lighting study",
+        "evidence": "Human approval is recorded. The installation and its final check are still pending.",
+        "approved_by": "curator"
+      },
+      {
+        "id": "capacity-proposal",
+        "title": "Increase Gallery B entrance slots",
+        "body": "Use the revised 96-person capacity after the floor plan receives an independent check.",
+        "status": "proposed",
+        "author_id": "atlas",
+        "channel_id": "workspace",
+        "created_at": "2030-05-14T08:00:00+00:00",
+        "updated_at": "2030-05-14T09:15:00+00:00",
+        "version": 1,
+        "source": "Fictional installation plan, revision 2",
+        "evidence": "This is a proposal. The previous 80-person claim remains visible as stale history."
+      }
+    ],
+    "tasks": [
+      {
+        "id": "labels",
+        "title": "Review the 42 object labels",
+        "body": "Apply the caption checklist, then ask Prism to review the twelve most complex labels.",
+        "status": "working",
+        "author_id": "scribe",
+        "channel_id": "workspace",
+        "created_at": "2030-05-14T08:00:00+00:00",
+        "updated_at": "2030-05-14T09:15:00+00:00",
+        "version": 1,
+        "owner_id": "scribe",
+        "priority": "high",
+        "due_date": "2030-05-17"
+      },
+      {
+        "id": "route",
+        "title": "Verify the step-free visitor route",
+        "body": "Check entrance width, turning space and the route to every gallery. Attach the review notes.",
+        "status": "working",
+        "author_id": "atlas",
+        "channel_id": "workspace",
+        "created_at": "2030-05-14T08:00:00+00:00",
+        "updated_at": "2030-05-14T09:15:00+00:00",
+        "version": 1,
+        "owner_id": "atlas",
+        "priority": "high",
+        "due_date": "2030-05-16"
+      },
+      {
+        "id": "lighting",
+        "title": "Approve the Gallery C lighting study",
+        "body": "Compare the two lighting layouts. Keep the conservation limit visible in the decision record.",
+        "status": "blocked",
+        "author_id": "prism",
+        "channel_id": "workspace",
+        "created_at": "2030-05-14T08:00:00+00:00",
+        "updated_at": "2030-05-14T09:15:00+00:00",
+        "version": 1,
+        "owner_id": "prism",
+        "priority": "high",
+        "due_date": "2030-05-18"
+      },
+      {
+        "id": "guides",
+        "title": "Rehearse three guided routes",
+        "body": "Run the family, discovery and quiet-preview routes. Record the actual duration of each rehearsal.",
+        "status": "open",
+        "author_id": "curator",
+        "channel_id": "workspace",
+        "created_at": "2030-05-14T08:00:00+00:00",
+        "updated_at": "2030-05-14T09:15:00+00:00",
+        "version": 1,
+        "owner_id": "curator",
+        "priority": "normal",
+        "due_date": "2030-05-19"
+      },
+      {
+        "id": "signs",
+        "title": "Prepare the multilingual sign set",
+        "body": "Use the approved room names and add the large-print visitor map.",
+        "status": "open",
+        "author_id": "prism",
+        "channel_id": "workspace",
+        "created_at": "2030-05-14T08:00:00+00:00",
+        "updated_at": "2030-05-14T09:15:00+00:00",
+        "version": 1,
+        "owner_id": "prism",
+        "priority": "normal",
+        "due_date": "2030-05-18"
+      },
+      {
+        "id": "capacity",
+        "title": "Resolve the Gallery B capacity change",
+        "body": "Replace the older capacity claim only after the new floor plan has been independently reviewed.",
+        "status": "blocked",
+        "author_id": "atlas",
+        "channel_id": "workspace",
+        "created_at": "2030-05-14T08:00:00+00:00",
+        "updated_at": "2030-05-14T09:15:00+00:00",
+        "version": 1,
+        "owner_id": "atlas",
+        "priority": "high",
+        "due_date": "2030-05-16"
+      },
+      {
+        "id": "timetable",
+        "title": "Publish the installation timetable",
+        "body": "Separate placement, safety checks and guide rehearsal. Include a named owner for each block.",
+        "status": "done",
+        "author_id": "atlas",
+        "channel_id": "workspace",
+        "created_at": "2030-05-14T08:00:00+00:00",
+        "updated_at": "2030-05-14T09:15:00+00:00",
+        "version": 1,
+        "owner_id": "atlas",
+        "priority": "normal",
+        "due_date": "2030-05-15"
+      },
+      {
+        "id": "catalogue",
+        "title": "Proofread the exhibition catalogue",
+        "body": "Check object titles, section headings and references against the final caption register.",
+        "status": "open",
+        "author_id": "scribe",
+        "channel_id": "workspace",
+        "created_at": "2030-05-14T08:00:00+00:00",
+        "updated_at": "2030-05-14T09:15:00+00:00",
+        "version": 1,
+        "owner_id": "scribe",
+        "priority": "normal",
+        "due_date": "2030-05-20"
+      },
+      {
+        "id": "audio",
+        "title": "Prepare accessible audio descriptions",
+        "body": "Draft descriptions for twelve focal objects. Review clarity before recording any narration.",
+        "status": "working",
+        "author_id": "scribe",
+        "channel_id": "workspace",
+        "created_at": "2030-05-14T08:00:00+00:00",
+        "updated_at": "2030-05-14T09:15:00+00:00",
+        "version": 1,
+        "owner_id": "scribe",
+        "priority": "normal",
+        "due_date": "2030-05-18"
+      },
+      {
+        "id": "preview",
+        "title": "Schedule the quiet preview",
+        "body": "Reserve a low-noise opening hour and brief the visitor team on the agreed route.",
+        "status": "done",
+        "author_id": "curator",
+        "channel_id": "workspace",
+        "created_at": "2030-05-14T08:00:00+00:00",
+        "updated_at": "2030-05-14T09:15:00+00:00",
+        "version": 1,
+        "owner_id": "curator",
+        "priority": "normal",
+        "due_date": "2030-05-15"
+      }
+    ],
+    "sources": [
+      {
+        "id": "exhibition-brief",
+        "title": "Exhibition brief",
+        "path": "examples/museum/exhibition-brief.md",
+        "channel_id": "workspace",
+        "status": "current",
+        "version": 2,
+        "sha256": "4c16de7bf7a9a3121fbc3a8a7576824e2e494be984bbd7a2c549662ca7f2f6ac",
+        "checked_at": "2030-05-14T09:15:00+00:00",
+        "error": null
+      },
+      {
+        "id": "accessibility-review",
+        "title": "Accessibility review",
+        "path": "examples/museum/accessibility-review.md",
+        "channel_id": "workspace",
+        "status": "current",
+        "version": 2,
+        "sha256": "86a27f478ae6f6f76b5075c63c188025c699b5518b161ac7760afe896e121af3",
+        "checked_at": "2030-05-14T09:15:00+00:00",
+        "error": null
+      },
+      {
+        "id": "installation-plan",
+        "title": "Installation plan",
+        "path": "examples/museum/installation-plan.md",
+        "channel_id": "workspace",
+        "status": "current",
+        "version": 2,
+        "sha256": "f0a2d2a766f7d374693e08a7f702624f02cbd1850945c4003c01e56c8b7be8fa",
+        "checked_at": "2030-05-14T09:15:00+00:00",
+        "error": null
+      }
+    ],
+    "source_context": [],
+    "source_scan": {
+      "checked_at": "2030-05-14T09:15:00+00:00",
+      "age_seconds": 0,
+      "available_count": 3,
+      "configured_count": 3,
+      "issues": []
+    },
+    "truncation": {},
+    "limitations": [
+      "Fictional demonstration data. The source paths are example references, not files indexed from a real project."
+    ],
+    "knowledge_check": {
+      "configured": true,
+      "time": "18:00",
+      "timezone": "UTC",
+      "check_date": "2030-05-13",
+      "state": "done",
+      "missed": [],
+      "last": {
+        "channel_id": "workspace",
+        "check_date": "2030-05-13",
+        "actor_id": "scribe",
+        "created_at": "2030-05-13T18:00:00+00:00",
+        "late": false,
+        "outcome": "updated",
+        "note": "Reconciled the caption register and retained the open capacity question.",
+        "knowledge_ids": [
+          "label-lesson",
+          "capacity-old"
+        ]
+      }
+    }
+  },
+  "rules": {
+    "current": {
+      "version": 3,
+      "body": "# Exhibition collaboration rules\n\n## 1. Keep the work visible\nEvery task has one owner, a concrete next step and a due date when needed. Record the result and its evidence.\n\n## 2. Separate proposals from permission\nAgents propose changes. The Curator approves them. Approval does not execute a change; the owner records implementation afterwards.\n\n## 3. Verify independently\nThe person who implements a safety or accessibility change cannot also verify it. Keep the reviewer’s evidence with the decision.\n\n## 4. Read the current sources\nUse the latest exhibition brief, accessibility review and installation plan. A stale note remains history until its source has been checked.\n\n## 5. Preserve the next shift’s context\nRecord what worked, what failed and what is still open. Complete the daily knowledge check before handing over.\n\nAll information in this museum example is fictional. No real people, organisations or operational records are represented.",
+      "author_id": "curator",
+      "author_name": "Curator",
+      "created_at": "2030-05-14T09:15:00+00:00"
+    },
+    "history": [
+      {
+        "version": 2,
+        "author_name": "Curator",
+        "created_at": "2030-05-13T15:00:00+00:00"
+      },
+      {
+        "version": 1,
+        "author_name": "Curator",
+        "created_at": "2030-05-10T10:00:00+00:00"
+      }
+    ],
+    "max_chars": 32000
+  }
+}
