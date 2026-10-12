@@ -2,18 +2,23 @@
 
 # Common Ground
 
-**Give your AI agents a shared project memory and a clear way to work together.**
+**One AI writes. An AI from a different lab reviews. You decide.**
 
-- **One shared memory for the whole team.** Goals, decisions, tasks, evidence, and lessons live in one project record that every agent can read, instead of being scattered across chats.
-- **Every participant has its own identity.** See who proposed a change, who approved it, who did the work, and who checked it.
-- **You stay in charge, on your own computer.** You set the Rules and approve decisions. The record lives in a local database on your machine.
+- **A second opinion from a different lab.** Claude, Codex, and Gemini are trained differently, so they tend to catch what the others miss. Let one build and another review.
+- **No AI approves its own work.** Every agent has its own identity. The app records who wrote, who checked, and who approved, and it refuses to let an agent verify its own implementation. Only you approve decisions.
+- **One shared project memory.** Goals, decisions, tasks, evidence, and lessons live in one local record that every agent can read, instead of being scattered across chats.
 
 ## Why use it?
 
-Working across several AI chats creates repeated work: copying context, explaining the same decision again, finding the latest answer, and checking whether two agents are changing the same thing. A long-running project also needs a record that survives a chat restart.
+An AI that writes the code, tests it, and reviews it on its own will usually tell you everything looks fine. It checks its work with the same blind spots it built it with. On a large project you cannot read every change yourself, so a confident summary is often all you get.
+
+Software teams solved this long ago: no serious company lets one developer write and approve their own code. Common Ground applies the same rule to AI agents. Models from the same lab tend to think alike. Models from different labs are like two strong developers trained in different countries: they think differently and catch what the other misses. Put them on one project with a shared record and clear ground rules, let them check each other, and keep the decisions for yourself.
+
+Working across separate AI chats also creates repeated work: copying context, explaining the same decision again, and finding the latest answer. A long-running project needs a record that survives a chat restart.
 
 Common Ground gives that work a place:
 
+- **Built-in review:** a decision moves from proposal to your approval, then implementation, then verification by a different participant. Self-verification is refused.
 - **Shared context:** record the project goal, current decisions, sources, and open tasks. A returning agent can read the brief and follow links to the full records.
 - **Clear responsibility:** give each task an owner, track its status, and record a review. Optional file claims can expose overlapping work when you configure a work policy.
 - **A useful project history:** keep proposals, approval, implementation evidence, corrections, and previous versions together.
@@ -24,10 +29,10 @@ The shared record acts like a project notebook that every permitted participant 
 
 ## How it's different
 
-Most AI work happens in separate chats. Each chat holds its own context, and useful context is easily lost when a chat ends or you switch tools. Common Ground keeps the memory with the project:
+Most AI work happens in separate chats, with one model grading its own answers. Each chat holds its own context, and useful context is easily lost when a chat ends or you switch tools. Common Ground puts several labs on one project and keeps the memory with the project:
 
+- **Agents from different labs check each other.** Any agent that can run a command or use MCP can join under its own identity, so Claude, Codex, and Gemini can work side by side: one building, another reviewing.
 - **It belongs to the project, not to one chat or one AI company.** The record survives new chats, restarts, and changes of tool.
-- **Several agents can work in it at once.** Any agent that can run a command or use MCP can join under its own identity, for example Claude, Codex, and Gemini side by side.
 - **It is built for work, not only conversation.** Tasks have owners, decisions wait for human approval, results carry evidence, and lessons record what worked and what failed.
 
 ![A fictional museum exhibition conversation](docs/screenshots/conversation.png)
@@ -40,20 +45,20 @@ Most AI work happens in separate chats. Each chat holds its own context, and use
 | --- | --- |
 | You and one agent | Keep decisions, work, and lessons outside a single chat. Resume from a structured project record. |
 | Several agents with different roles | Share the same sources and decisions, assign distinct work, and make handoffs visible. |
-| An implementer and a reviewer | Keep the proposal, implementation evidence, review findings, and human decision together. |
+| A writer and a reviewer from different labs | One agent builds; another, trained differently, checks the work. The proposal, evidence, review findings, and your decision stay together. |
 
 More agents are useful when their tasks are independent or a second review adds value.
 
 ## A practical way to work
 
-1. **Set the shared context.** Record the goal, constraints, and approved Rules. Allow access only to the local source files the project needs.
-2. **Give each piece of work one owner.** Add the expected result and evidence to the task. Use another agent for a review when that review is useful.
+1. **Set the shared context and ground rules.** Record the goal and constraints. In the Rules, ask agents to criticize each other only with a full explanation, share what they find, keep you updated, and stay in scope. Allow access only to the local source files the project needs.
+2. **Give each piece of work one owner and a reviewer from a different lab.** Add the expected result and evidence to the task.
 3. **Read before acting.** Have each agent use its own CLI or MCP identity to read the Rules, brief, relevant full records, and source evidence. A shortened brief is a starting point.
 4. **Return concrete work.** Record the result, what was checked, failures, and remaining uncertainty.
 5. **Review and decide.** Keep a proposal separate from human approval, completed implementation, and independent verification.
 6. **Improve the shared record.** Save a useful fact or lesson with its evidence. Update stale knowledge, preserve corrections, and make the next action clear.
 
-For example, in the fictional museum project, Scribe drafts object labels, Atlas checks the visitor route, and Prism reviews selected work. The Curator approves a common caption format. After a source changes, the team checks the linked knowledge before reusing it. A returning agent can see both the current decision and the earlier reasoning.
+For example, in the fictional museum project, Scribe (a Claude agent) drafts object labels, Atlas (a Codex agent) checks the visitor route, and Prism (a Gemini agent) reviews selected work. The Curator approves a common caption format. After a source changes, the team checks the linked knowledge before reusing it. A returning agent can see both the current decision and the earlier reasoning.
 
 Start with one human and one agent, a few real tasks, and one clear goal. Add roles and automation only when they solve a problem you have observed.
 
@@ -61,6 +66,7 @@ Start with one human and one agent, a few real tasks, and one clear goal. Add ro
 
 | Benefit | What you need to account for |
 | --- | --- |
+| Review across labs | Two models can still agree on the same mistake, and a review is only as good as its evidence. The most valuable checks often come from your own knowledge of the field. |
 | A persistent project record | Agents must read it and write useful updates; the app does not make them do it. Missing context and incorrect claims still need human attention. For a short one-off question, a normal chat is enough. |
 | Shared knowledge and lessons | Learning here means improving the record and the team's process. It does not train models or merge the agents' own memories. |
 | Several agents | More participants add coordination, review effort, and possible model cost. A larger team is not automatically faster or more accurate. |
