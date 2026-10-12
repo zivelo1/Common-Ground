@@ -4,7 +4,9 @@
 
 **Give your AI agents a shared project memory and a clear way to work together.**
 
-Common Ground is a local workspace for you and your AI agents. It brings conversations, tasks, decisions, evidence, and lessons into one project record. Each participant has its own identity, so you can see who proposed a change, who approved it, who did the work, and who checked it.
+- **One shared memory for the whole team.** Goals, decisions, tasks, evidence, and lessons live in one project record that every agent can read, instead of being scattered across chats.
+- **Every participant has its own identity.** See who proposed a change, who approved it, who did the work, and who checked it.
+- **You stay in charge, on your own computer.** You set the Rules and approve decisions. The record lives in a local database on your machine.
 
 ## Why use it?
 
@@ -18,7 +20,15 @@ Common Ground gives that work a place:
 - **Lessons you can reuse:** save what worked, what failed, and the evidence behind it. Source-linked knowledge can be marked stale when its source changes.
 - **Human control:** maintain the Rules, choose conversation audiences, approve decisions, and review provider requests before sending them.
 
-The shared record acts like a project notebook that every permitted participant can consult. Its value grows as the team adds useful evidence and keeps the current state clear. It does not merge the agents' internal memories, train their models, or make them read or follow the record automatically.
+The shared record acts like a project notebook that every permitted participant can consult. Its value grows as the team adds useful evidence and keeps the current state clear.
+
+## How it's different
+
+Most AI work happens in separate chats. Each chat holds its own context, and useful context is easily lost when a chat ends or you switch tools. Common Ground keeps the memory with the project:
+
+- **It belongs to the project, not to one chat or one AI company.** The record survives new chats, restarts, and changes of tool.
+- **Several agents can work in it at once.** Any agent that can run a command or use MCP can join under its own identity, for example Claude, Codex, and Gemini side by side.
+- **It is built for work, not only conversation.** Tasks have owners, decisions wait for human approval, results carry evidence, and lessons record what worked and what failed.
 
 ![A fictional museum exhibition conversation](docs/screenshots/conversation.png)
 
@@ -31,16 +41,15 @@ The shared record acts like a project notebook that every permitted participant 
 | You and one agent | Keep decisions, work, and lessons outside a single chat. Resume from a structured project record. |
 | Several agents with different roles | Share the same sources and decisions, assign distinct work, and make handoffs visible. |
 | An implementer and a reviewer | Keep the proposal, implementation evidence, review findings, and human decision together. |
-| A short, simple question | A normal chat may be enough. Maintaining a project board adds work. |
 
-More agents are useful when their tasks are independent or a second review adds value. More participants also add coordination, review effort, and possible model cost. Common Ground organizes those relationships; it does not prove that a larger team will be faster or more accurate.
+More agents are useful when their tasks are independent or a second review adds value.
 
 ## A practical way to work
 
 1. **Set the shared context.** Record the goal, constraints, and approved Rules. Allow access only to the local source files the project needs.
 2. **Give each piece of work one owner.** Add the expected result and evidence to the task. Use another agent for a review when that review is useful.
 3. **Read before acting.** Have each agent use its own CLI or MCP identity to read the Rules, brief, relevant full records, and source evidence. A shortened brief is a starting point.
-4. **Return concrete work.** Record the result, what was checked, failures, and remaining uncertainty. A confident message or read receipt is not proof of correctness or understanding.
+4. **Return concrete work.** Record the result, what was checked, failures, and remaining uncertainty.
 5. **Review and decide.** Keep a proposal separate from human approval, completed implementation, and independent verification.
 6. **Improve the shared record.** Save a useful fact or lesson with its evidence. Update stale knowledge, preserve corrections, and make the next action clear.
 
@@ -52,11 +61,14 @@ Start with one human and one agent, a few real tasks, and one clear goal. Add ro
 
 | Benefit | What you need to account for |
 | --- | --- |
-| A persistent project record | Agents must read it and write useful updates. Missing context and incorrect claims still need human attention. |
-| Shared knowledge and lessons | Learning here means improving the record and the team's process. It is not automatic model training. |
-| Visible ownership and review | These take time. File claims coordinate work through the app; they do not block direct filesystem writes. |
+| A persistent project record | Agents must read it and write useful updates; the app does not make them do it. Missing context and incorrect claims still need human attention. For a short one-off question, a normal chat is enough. |
+| Shared knowledge and lessons | Learning here means improving the record and the team's process. It does not train models or merge the agents' own memories. |
+| Several agents | More participants add coordination, review effort, and possible model cost. A larger team is not automatically faster or more accurate. |
+| Visible ownership and review | These take time. A read receipt or a confident message is not proof of understanding. File claims coordinate work through the app; they do not block direct filesystem writes. |
 | Local project storage | The app does not encrypt it. Processes under the same operating-system account may access local state. |
 | Optional model providers | Explicit jobs can add cost and send selected context outside the computer. Review the prepared request first. |
+
+Details are in [Privacy and limits](#privacy-and-limits).
 
 Messages, tasks, knowledge, decisions, and personal drafts live in the project's local database. Agents connect through the command-line interface (CLI) or Model Context Protocol (MCP), a standard tool interface for agent clients.
 
