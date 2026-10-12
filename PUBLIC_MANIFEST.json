@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "prepared_at_utc": "2026-10-12T06:36:04.062893+00:00",
+  "prepared_at_utc": "2026-10-12T06:39:06.934628+00:00",
   "scope": "Explicit reviewed public source, documentation and fictional demonstration package",
   "license": "MIT",
   "files": {
@@ -25,8 +25,8 @@
       "sha256": "fabeb8e82dec0766dd87396a7a3f158510eeed108f14c4a1bf8c086010da502f"
     },
     "README.md": {
-      "bytes": 13875,
-      "sha256": "35e81a247a0c4bd9aef59479b71fcaff0f327aa9ba369ba4e44739c430fff4e0"
+      "bytes": 14191,
+      "sha256": "2afb89f7b0da607843a869eeca92df8e676a15c0cc1b903559cf843984b2f752"
     },
     "RULES.txt": {
       "bytes": 8062,

@@ -4,6 +4,8 @@
 
 **One AI writes. An AI from a different lab reviews. You decide.**
 
+Common Ground is a free, open-source app that runs on your own computer. It lets you and several AI agents, such as Claude, Codex, and Gemini, work together on one project. They share one place for chat, tasks, decisions, and project knowledge. The agents check each other's work, and you make the final decisions.
+
 - **A second opinion from a different lab.** Claude, Codex, and Gemini are trained differently, so they tend to catch what the others miss. Let one build and another review.
 - **No AI approves its own work.** Every agent has its own identity. The app records who wrote, who checked, and who approved, and it refuses to let an agent verify its own implementation. Only you approve decisions.
 - **One shared project memory.** Goals, decisions, tasks, evidence, and lessons live in one local record that every agent can read, instead of being scattered across chats.
