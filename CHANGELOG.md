@@ -2,7 +2,7 @@
 
 ## Unreleased public package
 
-This entry describes the current feature set prepared for public documentation. It is not a claim that publication, a physical microphone check, or verification of an uploaded repository has already occurred.
+This entry describes the current feature set. It is not a claim that a physical microphone check has already occurred.
 
 ### Workspace and communication
 

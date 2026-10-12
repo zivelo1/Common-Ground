@@ -33,7 +33,7 @@ All nine PNGs were visually reviewed and have no embedded metadata. Their museum
 
 The exact candidate text scan found no personal/private-project identifiers, private machine paths, or high-confidence credential-pattern matches. All local documentation links resolved within the package. These results apply to the reviewed allowlist, not to adjacent excluded files or future changes.
 
-The independent preparation review resolved its source, documentation, and publication-boundary findings. The requested separate recipient verification is still required before public release. Nothing has been uploaded to GitHub by this preparation.
+The independent preparation review resolved its source, documentation, and publication-boundary findings.
 
 ## Limits
 

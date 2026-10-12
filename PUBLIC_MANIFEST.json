@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "prepared_at_utc": "2026-10-12T06:29:42.347952+00:00",
+  "prepared_at_utc": "2026-10-12T06:36:04.062893+00:00",
   "scope": "Explicit reviewed public source, documentation and fictional demonstration package",
   "license": "MIT",
   "files": {
@@ -9,8 +9,8 @@
       "sha256": "70a1dd11429cfec46832db5a8509bde1644f636c1ab90ce75ad02591314108b9"
     },
     "CHANGELOG.md": {
-      "bytes": 3418,
-      "sha256": "42e3a204ce51de7e65d75ecdc87283fd906b88a82b376f2e9b5136af8a9431b2"
+      "bytes": 3328,
+      "sha256": "58f51b9e76eab7522ee313cbb7226ece57b72d0660544f11ca331e2bacd5ba06"
     },
     "CONTRIBUTING.md": {
       "bytes": 4726,
@@ -25,8 +25,8 @@
       "sha256": "fabeb8e82dec0766dd87396a7a3f158510eeed108f14c4a1bf8c086010da502f"
     },
     "README.md": {
-      "bytes": 12372,
-      "sha256": "e0f6ea8aba138f9b4d6b64d22252f16abd58ca684bbddec9d0799a732b373511"
+      "bytes": 13875,
+      "sha256": "35e81a247a0c4bd9aef59479b71fcaff0f327aa9ba369ba4e44739c430fff4e0"
     },
     "RULES.txt": {
       "bytes": 8062,
@@ -81,8 +81,8 @@
       "sha256": "8ef1612f00ac63f961582496f9fa9caf9b6b7a8a4003f4b44f709c161b6aac02"
     },
     "docs/PRIVACY_AUDIT.md": {
-      "bytes": 4700,
-      "sha256": "728431c8458afd484380d177e56eb79e2eced8a060b19628bc3be71572deebdb"
+      "bytes": 4556,
+      "sha256": "cdfc6f5afd589a410c16cb920a20e9231e87699b06fd2e22529aa5ad0593d830"
     },
     "docs/PUBLISHING.md": {
       "bytes": 10617,
@@ -237,8 +237,8 @@
       "sha256": "4bff646d74bd55f9abd242bebf130925e8fcc01a4eee0d5baada256ee7711919"
     },
     "tests/test_adapters.py": {
-      "bytes": 14631,
-      "sha256": "8566a8595367d9d9844dc2a952f6821053702266545aa3581028dbf6d524e169"
+      "bytes": 14624,
+      "sha256": "38d8fb5dee3ca2b8fbbfd2b502f84e6fbb3c9542367732b576b469c06ecd208a"
     },
     "tests/test_backend.py": {
       "bytes": 36353,
