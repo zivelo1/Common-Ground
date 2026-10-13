@@ -33,7 +33,7 @@ The shared record acts like a project notebook that every permitted participant 
 
 Most AI work happens in separate chats, with one model grading its own answers. Each chat holds its own context, and useful context is easily lost when a chat ends or you switch tools. Common Ground puts several labs on one project and keeps the memory with the project:
 
-- **Agents from different labs check each other.** Any agent that can run a command or use MCP can join under its own identity, so Claude, Codex, and Gemini can work side by side: one building, another reviewing.
+- **Agents from different labs check each other.** Any agent that can run a command or use MCP can join under its own identity, so Claude, Codex, and Gemini can work side by side: one building, another reviewing. Built-in connectors also reach models from OpenAI, Anthropic, Google, and xAI, many more through OpenRouter and OpenCode Zen, and local models through Ollama.
 - **It belongs to the project, not to one chat or one AI company.** The record survives new chats, restarts, and changes of tool.
 - **It is built for work, not only conversation.** Tasks have owners, decisions wait for human approval, results carry evidence, and lessons record what worked and what failed.
 
@@ -74,13 +74,16 @@ Start with one human and one agent, a few real tasks, and one clear goal. Add ro
 | Several agents | More participants add coordination, review effort, and possible model cost. A larger team is not automatically faster or more accurate. |
 | Visible ownership and review | These take time. A read receipt or a confident message is not proof of understanding. File claims coordinate work through the app; they do not block direct filesystem writes. |
 | Local project storage | The app does not encrypt it. Processes under the same operating-system account may access local state. |
-| Optional model providers | Explicit jobs can add cost and send selected context outside the computer. Review the prepared request first. |
+| Optional model providers | Explicit jobs can add cost and send selected context outside the computer. The connectors are tested with simulated responses; real paid calls have not been measured. Review the prepared request first. |
 
 Details are in [Privacy and limits](#privacy-and-limits).
 
-Messages, tasks, knowledge, decisions, and personal drafts live in the project's local database. Agents connect through the command-line interface (CLI) or Model Context Protocol (MCP), a standard tool interface for agent clients.
+## Two ways an AI can join
 
-Optional modules support local Ollama and six remote services: OpenAI, Anthropic, Gemini, Grok (xAI), OpenRouter, and OpenCode Zen. A manual module lets you exchange a reviewed text packet yourself. These are implemented connectors, not automatic agents. Opening the workspace, receiving a mention, reading a brief, or polling messages does not start a model. See [Providers](#providers) for setup and limits.
+- **As a team member.** An agent app such as Claude Code or Codex connects through the command line (CLI) or the Model Context Protocol (MCP), a standard tool interface for AI agents. It reads the record, does the work, and writes back under its own identity.
+- **Through a connector.** The app asks a model for a draft: OpenAI, Anthropic, Gemini, Grok, OpenRouter, OpenCode Zen, or a local Ollama model. You can review the exact request before it is sent, and publishing the answer is a separate step. See [Providers](#providers).
+
+Nothing starts a model on its own. Opening the workspace, reading a brief, receiving a mention, or checking messages does not call an AI.
 
 ## What you can do
 
@@ -97,17 +100,6 @@ Optional modules support local Ollama and six remote services: OpenAI, Anthropic
 | Recovery | Consistent database backups, verification manifests, a human backup panel, and restore to a new file |
 | Access | Browser, command line, and MCP; account-scoped search and export; remove/restore participants while keeping their history |
 
-## Six additions prepared on 13 October 2026
-
-- **Clearer receipts.** Received means the server recorded retrieval of that message for that account. Read means a browser or agent advanced its conversation marker. An agent's conversation request counts the new and edited rows in the local server's response. CLI `wait` shows only new messages; it can show an empty list after an internal response counted an edited message as read. Use `messages` or MCP `collab_messages` to see those corrections. Neither status proves attention, understanding, approval, or completed work.
-- **Mentions.** Type `@` and choose a current conversation member. A stable identity keeps the mention attached after a rename. Mentions highlight messages and add an unread badge; they do not wake an agent, start a model, or grant access to another conversation.
-- **More room to write.** Drag the composer's top edge or use its keyboard controls. The browser remembers the height and limits it on small screens. Saved drafts remain separate from this browser-only setting.
-- **Remove and restore participants.** A human can remove another account with a reason. New application actions are refused, including provider actions through a previously obtained runner. Restoration preserves the identity and its retained history. It does not restore old browser sessions; sign in again. Removal cannot recall text already downloaded or sent to a model.
-- **Optional dictation.** Record a short memo, check the returned text in the draft, then send it as text. The speech program and model must be installed and configured deliberately.
-- **Provider activation.** The ordinary launcher loads the two deliberately named private provider/grant files when present. Without provider configuration, the feature stays off. Generation and publication remain separate human or agent actions.
-
-The [User guide](docs/USER_GUIDE.md) explains these controls. The existing [screenshots](docs/screenshots/README.md) are fictional illustrations; they do not show every addition or prove a real provider or microphone worked.
-
 ## Providers
 
 | Service or method | Implemented adapter |
@@ -121,13 +113,7 @@ The [User guide](docs/USER_GUIDE.md) explains these controls. The existing [scre
 | Local Ollama | Native chat endpoint on `127.0.0.1` |
 | Manual handoff | Review and exchange a text packet yourself; no model call by the app |
 
-The six remote adapters and local Ollama make seven API/local connectors. Manual handoff is a separate method. Adapters accept text only; they do not submit image or audio attachment bytes.
-
-All example modules are disabled. Remote use needs a private configuration, a credential named through an environment variable, current pricing evidence, and explicit limits. Human launching also needs a separate grant. Both caller and agent must be active and belong to the permitted conversation. The ordinary launcher reads `providers.local.json` and `adapter-human-policy.local.json` beside `config.json`; it does not create keys, activate unresolved modules, or install software.
-
-The remote adapters have synthetic request/response tests. No paid-provider end-to-end call was measured for this preparation. A supported adapter does not mean every model or provider feature works. Ollama needs a chat-capable model and an operator check of local-only operation; thinking is disabled for its draft request. OpenCode Zen's chat route is a beta interface and cannot reach models served only in other formats. The xAI output-limit field is an implementation assumption that needs a real provider check. See [Integrations](docs/INTEGRATIONS.md) for exact endpoints and other limits.
-
-Before a remote call, inspect **Prepare preview**. Generation can send permitted context outside the computer. Pricing and reservations limit jobs admitted by this app; they are not a cap on the provider account's total bill. A timeout or uncertain response can leave cost unknown. Review the original run before retrying, and publish its result only through the separate **Publish** action.
+All connectors are off by default. To use one, you add your own API key and set spending limits; the provider bills you directly. Setup, tested limits, and known gaps are in [Integrations](docs/INTEGRATIONS.md#optional-provider-modules).
 
 ## Requirements
 
