@@ -330,6 +330,64 @@ class ControllerFixture(unittest.TestCase):
         with self.assertRaises(APIError):
             self.controller.status(self.human, "manual", row["run_id"])
 
+    def test_a_module_bound_to_a_removed_agent_is_unavailable(self) -> None:
+        self.prepared()   # positive control: the human may launch the agent's module
+        self.store.remove_participant(
+            self.human, {"id": "agent", "seen_name": "Synthetic agent", "reason": "Retired"}
+        )
+        with self.assertRaises(APIError):
+            self.prepared()
+
+    def remove_launching_human(self) -> None:
+        self.store.remove_participant(
+            self.second,
+            {"id": self.human["id"], "seen_name": self.human["name"],
+             "reason": "Synthetic membership revocation"},
+        )
+
+    def test_removed_human_cannot_reuse_cached_grant(self) -> None:
+        self.prepared()
+        self.remove_launching_human()
+        with self.assertRaises(APIError):
+            self.controller._grant(self.human, "manual", "workspace")
+
+    def test_prepared_runner_refuses_removed_human_before_export_or_secret_read(self) -> None:
+        row = self.prepared(module="remote", channel=self.private)
+        runner = self.controller._runner(self.human, "remote", self.private)
+        self.remove_launching_human()
+        with self.assertRaises(APIError):
+            runner.run("remote", row["run_id"], row["prepared_sha256"])
+        self.assertEqual(self.transport.calls, [])
+        self.assertEqual(self.secret_reads, [])
+
+    def test_completed_runner_refuses_removed_human_publication(self) -> None:
+        row = self.prepared(module="remote", channel=self.private)
+        runner = self.controller._runner(self.human, "remote", self.private)
+        # The newer adapter strictly validates the provider envelope. Keep the
+        # existing shared transport's deliberately incomplete responses unchanged.
+        response = {"id": "synthetic-request", "status": "completed",
+                    "output": [{"type": "message", "role": "assistant",
+                                "content": [{"type": "output_text", "text": "Synthetic result"}]}],
+                    "usage": {"input_tokens": 4, "output_tokens": 5, "total_tokens": 9}}
+        with patch.object(self.transport, "post", return_value=response):
+            self.assertEqual(runner.run("remote", row["run_id"], row["prepared_sha256"])["status"], "completed")
+        self.remove_launching_human()
+        with self.assertRaises(APIError):
+            runner.publish("remote", row["run_id"], row["prepared_sha256"])
+        self.assertEqual(self.store.messages(self.agent, self.private)["messages"], [])
+
+    def test_restoring_human_restores_explicit_grant_without_a_model_call(self) -> None:
+        self.remove_launching_human()
+        with self.assertRaises(APIError):
+            self.prepared()
+        self.store.restore_participant(
+            self.second,
+            {"id": self.human["id"], "seen_name": self.human["name"], "reason": "Synthetic return"},
+        )
+        self.assertEqual(self.prepared()["status"], "prepared")
+        self.assertEqual(self.transport.calls, [])
+        self.assertEqual(self.secret_reads, [])
+
     def test_private_recent_runs_are_filtered_before_pagination(self) -> None:
         hidden = self.prepared(channel=self.hidden, actor=self.agent)
         visible = self.prepared()

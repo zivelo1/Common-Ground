@@ -5,12 +5,14 @@ Common Ground is intended for a trusted local computer and project participants 
 ## Protected application boundaries
 
 - The HTTP server listens on `127.0.0.1` and validates local request information.
-- API actions use an authenticated identity; conversation membership scopes records and attachments.
+- API actions use an authenticated active identity; conversation membership scopes records and attachments. Provider permissions recheck that both caller and agent are active, including when using an existing runner.
 - Humans control participant management, shared Rules, approval, source refresh, and backups.
 - Version checks reject conflicting updates. Stable operation IDs support confirmation retries.
 - Source indexing uses individual allowlisted files, exclusions, protected-path checks, and bounded selections.
 - Provider modules are disabled until explicitly configured with identity, audience, limits, and provider-specific requirements.
 - Task-linked file claims need an explicit work policy and do not expose private conflict details as normal claim results.
+
+Removing a participant refuses new application actions and keeps its authored records. Restoring it re-enables its retained identity and allowed access. Removal deletes its browser sessions; restoration does not recreate them. Sign in again after restoration. Removal does not recall data already copied, cancel every external operation already started, or isolate software running under the same operating-system account.
 
 These boundaries do not prove that an outside tool honors a decision, Rule, or file claim. A read receipt also does not establish attention or understanding.
 
@@ -24,7 +26,11 @@ Browser sessions use HttpOnly, SameSite=Strict cookies with a configured lifetim
 
 ## Attachments and audio
 
-Images are validated by decoding, with byte and pixel limits. Voice containers have bounded size and signature checks; the application does not decode, transcribe, or analyze the sound. Playback and recording depend on browser/device behavior. Physical microphone behavior has not been verified for this release.
+Images are validated by decoding, with byte and pixel limits. Earlier voice attachments have bounded size and container-signature checks and remain stored for playback.
+
+Optional dictation is different: the browser converts a recording to WAV, and the server checks its format, duration and loudness before running the configured local speech program. The returned text goes into the human's draft for review. The app removes its temporary audio file and does not store that dictation sound as a message. The executable receives spelling hints containing the workspace title, project label and active participant names.
+
+The speech program and model must already be installed and configured by the operator. It runs without a shell, with an empty environment and a timeout. These controls are not a file-access or network sandbox. The selected executable can act with the operating-system user's permissions; use software you trust. The app does not guarantee what another program keeps or transmits. Physical microphones and a user's real voice have not been verified for this preparation.
 
 Attachments remain private project material. Downloading or copying them creates another copy under the user's control. Clearing a draft or deleting a queued copy is not a guarantee of physical erasure from database pages, older backups, or prior downloads.
 
@@ -34,7 +40,9 @@ No model runs merely because a message arrives or a brief is read. An explicit e
 
 Local Ollama activation requires operator evidence of local-only operation; a loopback address alone does not establish how the service handles data. A manual handoff can leak context if copied to an external service. The OpenAI Responses adapter's `store: false` request field does not replace the provider's account policy or retention terms.
 
-Keep provider credentials in the environment or an appropriate secret-management workflow. A provider file contains a credential reference, never its value. Limits cover admitted application jobs; they cannot guarantee the total external account bill or resolve an unknown remote outcome.
+Keep provider credentials in the environment or an appropriate secret-management workflow. A provider file contains a credential reference, never its value. Six remote adapters use fixed configured endpoints; local Ollama uses its explicit loopback chat endpoint. Remote examples are disabled until configured, and the preparation used synthetic transports rather than paid-provider calls.
+
+Limits and price-based reservations cover admitted application jobs. They cannot cap the total external account bill or resolve an unknown remote outcome. HTTP client errors other than 408 are recorded as failed by the adapter; this status is not independent proof that the provider generated nothing or billed nothing. Timeouts, server errors and lost connections can remain unknown. Do not automatically repeat an uncertain call.
 
 The provider export contract is narrower than the JSON API joining brief and currently excludes shared Rules and daily-check fields. Review required instructions separately. Source documents and messages are evidence, not trusted executable instructions.
 

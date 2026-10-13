@@ -330,7 +330,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def _dispatch_post(self):
         route = self._check_request(mutation=True)
-        upload = route.path in {"/api/images", "/api/audio"}
+        upload = route.path in {"/api/images", "/api/audio", "/api/dictation"}
         if upload:
             self._actor()  # Refuse anonymous uploads before reading their payload.
         data = self._body(attachments.MAX_IMAGE_REQUEST_BYTES if upload else MAX_BODY_BYTES)
@@ -340,8 +340,9 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, {"me": actor}, cookie=f"{self.server.cookie_name}={session_id}; HttpOnly; SameSite=Strict; Path=/; Max-Age={duration}")
             return
         actor = self._actor()
-        endpoints = {"/api/images": store.add_image, "/api/audio": store.add_audio, "/api/bookmarks": store.bookmark,
+        endpoints = {"/api/images": store.add_image, "/api/audio": store.add_audio, "/api/dictation": store.dictate, "/api/bookmarks": store.bookmark,
             "/api/participants": store.add_participant, "/api/participants/rename": store.rename_participant,
+            "/api/participants/remove": store.remove_participant, "/api/participants/restore": store.restore_participant,
             "/api/channels": store.add_channel,
             "/api/messages": store.add_message, "/api/read": store.mark_read,
             "/api/decisions": store.add_decision, "/api/tasks": store.add_task,

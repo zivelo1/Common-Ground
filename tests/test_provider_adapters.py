@@ -12,9 +12,11 @@ import threading
 import time
 import unittest
 from concurrent.futures import ThreadPoolExecutor
+from email.message import Message
 from pathlib import Path
 from typing import Any, Self
 from unittest.mock import patch
+from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, urlsplit
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -123,6 +125,14 @@ class Board:
             raise AssertionError("Unexpected synthetic API")
 
 
+# The Chat Completions providers: registry name, the one reviewed endpoint, the output-limit field.
+CHAT_PROVIDERS = (
+    ("xai_chat", "https://api.x.ai/v1/chat/completions", "max_tokens"),
+    ("openrouter_chat", "https://openrouter.ai/api/v1/chat/completions", "max_completion_tokens"),
+    ("opencode_zen_chat", "https://opencode.ai/zen/v1/chat/completions", "max_tokens"),
+)
+
+
 class Transport:
     def __init__(self, provider: str = "openai", mode: str = "complete") -> None:
         self.provider, self.mode = provider, mode
@@ -152,6 +162,38 @@ class Transport:
             raise TimeoutError("Sensitive synthetic transport detail")
         if self.mode == "malformed":
             return {"status": "completed", "output": [], "usage": {}}
+        if self.provider == "anthropic":
+            stop = {"incomplete": "max_tokens", "refused": "refusal"}.get(self.mode, "end_turn")
+            if self.mode == "malformed":
+                return {"type": "message", "role": "assistant", "content": [{"type": "tool_use"}],
+                        "stop_reason": "tool_use", "usage": {"input_tokens": 5, "output_tokens": 3}}
+            return {"id": "msg_synthetic", "type": "message", "role": "assistant",
+                    "content": [{"type": "text", "text": "Synthetic Claude answer"}], "stop_reason": stop,
+                    "stop_sequence": None, "usage": {"input_tokens": 5, "output_tokens": 3,
+                                                     "cache_creation_input_tokens": 0,
+                                                     "cache_read_input_tokens": 0}}
+        if self.provider == "gemini":
+            finish = {"incomplete": "MAX_TOKENS", "refused": "SAFETY"}.get(self.mode, "STOP")
+            # proto3 JSON omits zero counts: no toolUsePromptTokenCount here
+            usage = {"promptTokenCount": 5, "candidatesTokenCount": 3, "thoughtsTokenCount": 2,
+                     "totalTokenCount": 10 if self.mode != "malformed" else 11}
+            return {"responseId": "synthetic-gemini", "usageMetadata": usage,
+                    "candidates": [{"finishReason": finish, "content": {
+                        "role": "model", "parts": [{"text": "Synthetic Gemini answer"}]}}]}
+        if self.provider == "chat":
+            finish = {"incomplete": "length", "refused": "content_filter"}.get(self.mode, "stop")
+            chat_usage: dict[str, Any] = {"prompt_tokens": 5, "completion_tokens": 3, "total_tokens": 8}
+            if self.mode == "reasoning_separate":   # xAI's documented example: reasoning counted beside the completion
+                chat_usage.update(total_tokens=10, completion_tokens_details={"reasoning_tokens": 2})
+            if self.mode == "reasoning_included":   # OpenAI's rule: reasoning counted inside completion_tokens
+                chat_usage.update(completion_tokens=5, total_tokens=10, completion_tokens_details={"reasoning_tokens": 2})
+            if self.mode == "bad_total":
+                chat_usage["total_tokens"] = 12
+            message: dict[str, Any] = {"role": "assistant", "content": "Synthetic chat answer"}
+            if self.mode == "tool_call":   # a tool call is never a draft, even beside text and a "stop" finish
+                message["tool_calls"] = [{"id": "call_synthetic", "type": "function"}]
+            return {"id": "chatcmpl-synthetic", "object": "chat.completion", "model": "synthetic-model",
+                    "choices": [{"index": 0, "message": message, "finish_reason": finish}], "usage": chat_usage}
         if self.provider == "ollama":
             return {
                 "message": {"role": "assistant", "content": "Synthetic local answer"},
@@ -465,6 +507,205 @@ class ProviderTests(unittest.TestCase):
         self.assertFalse(request["payload"]["stream"])
         self.assertEqual(request["payload"]["options"]["num_predict"], 50)
         self.assertNotIn("Authorization", request["headers"])
+
+    def use_remote(self, provider: str, endpoint: str, model: str = "synthetic-model") -> Transport:
+        self.raw["modules"][0].update(provider=provider, endpoint=endpoint, model=model)
+        self.write()
+        transport = Transport({"anthropic_messages": "anthropic", "gemini_generate": "gemini", "xai_chat": "chat",
+                               "openrouter_chat": "chat", "opencode_zen_chat": "chat"}[provider])
+        self.runner = self.make(transport=transport)
+        return transport
+
+    def test_anthropic_messages_wire_usage_and_stop_reasons(self) -> None:
+        transport = self.use_remote("anthropic_messages", "https://api.anthropic.com/v1/messages")
+        row = self.run_job(self.prepare())
+        [call] = transport.calls
+        self.assertEqual(call["endpoint"], "https://api.anthropic.com/v1/messages")
+        self.assertEqual(call["headers"], {"Content-Type": "application/json", "x-api-key": "synthetic-only-secret",
+                                           "anthropic-version": "2023-06-01"})
+        payload = call["payload"]
+        self.assertEqual(sorted(payload), ["max_tokens", "messages", "model", "system"])
+        self.assertEqual((payload["model"], payload["max_tokens"]), ("synthetic-model", 50))
+        self.assertEqual([m["role"] for m in payload["messages"]], ["user"])
+        self.assertIn("Explicit request:\nReview synthetic evidence", payload["messages"][0]["content"])
+        self.assertIn("Return a text draft only", payload["system"])
+        self.assertEqual((row["status"], row["result"]["text"], row["result"]["request_id"]),
+                         ("completed", "Synthetic Claude answer", "msg_synthetic"))
+        self.assertEqual(row["charged_microusd"], 1 * 5 + 2 * 3)
+        for mode, status in (("incomplete", "incomplete"), ("refused", "refused"), ("malformed", "unknown")):
+            with self.subTest(mode=mode):
+                transport.mode = mode
+                self.assertEqual(self.run_job(self.prepare())["status"], status)
+
+    def test_anthropic_cache_usage_we_never_asked_for_is_not_priced_as_success(self) -> None:
+        transport = self.use_remote("anthropic_messages", "https://api.anthropic.com/v1/messages")
+        original = transport.post
+
+        def cached(*args: Any, **kwargs: Any) -> dict[str, Any]:
+            reply = original(*args, **kwargs)
+            reply["usage"]["cache_creation_input_tokens"] = 7
+            return reply
+
+        transport.post = cached  # type: ignore[method-assign]
+        row = self.run_job(self.prepare())
+        self.assertEqual((row["status"], row["result"]["warning"]), ("unknown", "unexpected_anthropic_cache_usage"))
+
+    def test_gemini_wire_counts_thinking_as_output_and_checks_the_total(self) -> None:
+        transport = self.use_remote("gemini_generate", "https://generativelanguage.googleapis.com/v1beta/models",
+                                    "gemini-synthetic-flash")
+        row = self.run_job(self.prepare())
+        [call] = transport.calls
+        self.assertEqual(call["endpoint"], "https://generativelanguage.googleapis.com/v1beta/models/"
+                                           "gemini-synthetic-flash:generateContent")
+        self.assertEqual(call["headers"], {"Content-Type": "application/json", "x-goog-api-key": "synthetic-only-secret"})
+        payload = call["payload"]
+        self.assertEqual(sorted(payload), ["contents", "generationConfig", "systemInstruction"])
+        self.assertEqual(payload["generationConfig"], {"maxOutputTokens": 50})
+        self.assertIn("Return a text draft only", payload["systemInstruction"]["parts"][0]["text"])
+        self.assertEqual([c["role"] for c in payload["contents"]], ["user"])
+        # 3 answer tokens + 2 thinking tokens are both billed output
+        self.assertEqual((row["status"], row["result"]["input_tokens"], row["result"]["output_tokens"]),
+                         ("completed", 5, 5))
+        self.assertEqual(row["charged_microusd"], 1 * 5 + 2 * 5)
+        for mode, status in (("incomplete", "incomplete"), ("refused", "refused"), ("malformed", "unknown")):
+            with self.subTest(mode=mode):
+                transport.mode = mode
+                self.assertEqual(self.run_job(self.prepare())["status"], status)
+
+    def test_chat_completions_wire_for_grok_openrouter_and_opencode(self) -> None:
+        self.raw["instance_limits"]["daily_budget_usd"] = "10"   # unknown results keep their reservation
+        for provider, endpoint, limit_field in CHAT_PROVIDERS:
+            with self.subTest(provider=provider):
+                transport = self.use_remote(provider, endpoint)
+                row = self.run_job(self.prepare())
+                [call] = transport.calls
+                self.assertEqual(call["endpoint"], endpoint)
+                self.assertEqual(call["headers"], {"Content-Type": "application/json",
+                                                   "Authorization": "Bearer synthetic-only-secret"})
+                payload = call["payload"]
+                self.assertEqual(sorted(payload), sorted(["messages", "model", "stream", limit_field]))
+                self.assertEqual((payload["model"], payload[limit_field], payload["stream"]), ("synthetic-model", 50, False))
+                self.assertEqual([m["role"] for m in payload["messages"]], ["system", "user"])
+                self.assertIn("Return a text draft only", payload["messages"][0]["content"])
+                self.assertIn("Explicit request:\nReview synthetic evidence", payload["messages"][1]["content"])
+                self.assertEqual((row["status"], row["result"]["text"], row["result"]["request_id"]),
+                                 ("completed", "Synthetic chat answer", "chatcmpl-synthetic"))
+                self.assertEqual(row["charged_microusd"], 1 * 5 + 2 * 3)
+                for mode, status in (("incomplete", "incomplete"), ("refused", "refused"), ("malformed", "unknown"),
+                                     ("tool_call", "unknown"), ("bad_total", "unknown")):
+                    with self.subTest(provider=provider, mode=mode):
+                        transport.mode = mode
+                        self.assertEqual(self.run_job(self.prepare())["status"], status)
+
+    def test_chat_completions_bill_reasoning_inside_or_beside_the_completion(self) -> None:
+        # Billed output = total - prompt, and it must equal the completion, or the completion plus its reasoning
+        # tokens; any other total is unknown, never a priced success.
+        transport = self.use_remote("xai_chat", "https://api.x.ai/v1/chat/completions")
+        for mode in ("reasoning_separate", "reasoning_included"):
+            with self.subTest(mode=mode):
+                transport.mode = mode
+                row = self.run_job(self.prepare())
+                self.assertEqual((row["status"], row["result"]["output_tokens"]), ("completed", 5))
+                self.assertEqual(row["charged_microusd"], 1 * 5 + 2 * 5)
+
+    def test_gemini_model_must_be_one_safe_path_segment(self) -> None:
+        for model in ("../other", "gemini:flash", "gemini/flash", "Gemini Flash"):
+            with self.subTest(model=model):
+                self.use_remote("gemini_generate", "https://generativelanguage.googleapis.com/v1beta/models", model)
+                with self.assertRaises(AdapterError):
+                    self.prepare()
+
+    def test_each_remote_provider_accepts_only_its_reviewed_origin(self) -> None:
+        for provider, endpoint in (
+            ("anthropic_messages", "https://api.anthropic.com.evil.invalid/v1/messages"),
+            ("anthropic_messages", "https://api.openai.com/v1/responses"),
+            ("gemini_generate", "https://generativelanguage.googleapis.com/v1/models"),
+            ("gemini_generate", "https://api.anthropic.com/v1/messages"),
+            ("xai_chat", "https://api.x.ai.evil.invalid/v1/chat/completions"),
+            ("openrouter_chat", "https://api.x.ai/v1/chat/completions"),
+            ("opencode_zen_chat", "https://opencode.ai/zen/v1/messages"),
+        ):
+            with self.subTest(provider=provider, endpoint=endpoint):
+                self.raw["modules"][0].update(provider=provider, endpoint=endpoint)
+                self.write()
+                with self.assertRaises(AdapterError):
+                    load_provider_config(self.path)
+        # positive control: each reviewed origin itself loads
+        for provider, endpoint in (("anthropic_messages", "https://api.anthropic.com/v1/messages"),
+                                   ("gemini_generate", "https://generativelanguage.googleapis.com/v1beta/models"),
+                                   *((name, url) for name, url, _ in CHAT_PROVIDERS)):
+            self.raw["modules"][0].update(provider=provider, endpoint=endpoint)
+            self.write()
+            self.assertEqual(load_provider_config(self.path).modules["remote"].endpoint, endpoint)
+
+    def test_a_missing_key_stops_every_remote_provider_before_dispatch(self) -> None:
+        for provider, endpoint in (("anthropic_messages", "https://api.anthropic.com/v1/messages"),
+                                   ("gemini_generate", "https://generativelanguage.googleapis.com/v1beta/models"),
+                                   *((name, url) for name, url, _ in CHAT_PROVIDERS)):
+            with self.subTest(provider=provider):
+                transport = self.use_remote(provider, endpoint)
+                record = self.prepare()
+                runner = Runner(load_provider_config(self.path), self.journal, self.board, transport, lambda name: "")
+                with self.assertRaises(AdapterError):
+                    runner.run("remote", record["run_id"], record["prepared_sha256"])
+                self.assertEqual(transport.calls, [])
+
+    def test_ollama_turns_thinking_off_so_the_output_budget_is_the_draft(self) -> None:
+        # Measured 12/10 on the real local gemma4:12b-it-qat: with thinking on (its default), all 300 allowed output
+        # tokens went to hidden reasoning and the draft came back empty ("incomplete").
+        self.raw["modules"][0].update(
+            provider="ollama",
+            endpoint="http://127.0.0.1:11434/api/chat",
+            pricing=None,
+            credential_env=None,
+            local_only_verified=True,
+            local_only_evidence="Synthetic operator attestation",
+        )
+        self.write()
+        transport = Transport("ollama")
+        self.runner = self.make(transport=transport)
+        self.run_job(self.prepare())
+        self.assertIs(transport.calls[0]["payload"]["think"], False)
+
+    def test_a_provider_refusal_is_a_definite_failure_and_the_rest_stays_unknown(
+        self,
+    ) -> None:
+        # Measured 12/10: the local Ollama answered 400 "does not support chat" and the run showed only "unknown /
+        # provider_transport_unconfirmed". A 4xx answer is a refusal before any generation; 408, 5xx and a lost
+        # connection may have started work, so they stay unknown.
+        module = load_provider_config(self.path).modules["remote"]
+        assert module.limits is not None
+
+        class Cancel:
+            def check(self) -> None:
+                return None
+
+        class Refusing:
+            def __init__(self, failure: Exception) -> None:
+                self.failure = failure
+
+            def open(self, *args: Any, **kwargs: Any) -> None:
+                raise self.failure
+
+        def http(code: int) -> HTTPError:
+            return HTTPError("https://api.openai.com/v1/responses", code, "synthetic", Message(), None)
+
+        cases: list[tuple[Exception, str, str]] = [
+            (http(code), "failed", f"provider_http_{code}") for code in (400, 401, 403, 404, 422, 429)
+        ]
+        cases += [(http(code), "unknown", "provider_transport_unconfirmed") for code in (408, 500, 502, 503)]
+        cases += [(URLError("synthetic"), "unknown", "provider_transport_unconfirmed"),
+                  (TimeoutError(), "unknown", "provider_transport_unconfirmed")]
+        for failure, status, category in cases:
+            with (
+                self.subTest(failure=repr(failure)),
+                patch("adapter_runner.build_opener", return_value=Refusing(failure)),
+                self.assertRaises(ProviderError) as caught,
+            ):
+                HTTPTransport().post(
+                    "https://api.openai.com/v1/responses", {}, {}, module.limits, Cancel()
+                )
+            self.assertEqual((caught.exception.status, str(caught.exception)), (status, category))
 
     def test_stop_blocks_admission_and_pending_request_becomes_unknown(self) -> None:
         self.transport.mode = "wait"

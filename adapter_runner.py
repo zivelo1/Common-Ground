@@ -24,7 +24,7 @@ from urllib.parse import urlencode, urlsplit
 from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
 from uuid import uuid4
 
-from providers import PROVIDERS
+from providers import PROVIDERS, REMOTE_ENDPOINTS
 from providers.base import (
     AdapterError,
     Cancellation,
@@ -37,12 +37,13 @@ from providers.base import (
     Transport,
     encoded,
 )
-from providers.openai_responses import OPENAI_RESPONSES_ENDPOINT
 
 MAX_CONFIG_BYTES = 1_048_576
 MAX_SQLITE_INTEGER = (1 << 63) - 1
 MICRO_USD_PER_USD = 1_000_000
 READ_CHUNK_BYTES = 16_384
+HTTP_CLIENT_ERRORS = range(400, 500)
+HTTP_REQUEST_TIMEOUT = 408
 DRAIN_POLL_SECONDS = 0.02
 MAX_RECENT_RUNS = 50
 IDENTIFIER = re.compile(r"[A-Za-z0-9_-]{1,64}\Z")
@@ -220,11 +221,11 @@ def load_provider_config(path: Path) -> Configuration:
         if endpoint is not None:
             url = urlsplit(endpoint)
             if (
-                item["provider"] == "openai_responses"
-                and endpoint != OPENAI_RESPONSES_ENDPOINT
+                item["provider"] in REMOTE_ENDPOINTS
+                and endpoint != REMOTE_ENDPOINTS[item["provider"]]
             ):
                 raise AdapterError(
-                    "Only the reviewed OpenAI Responses origin is supported"
+                    "Only the reviewed origin of this remote provider is supported"
                 )
             if item["provider"] == "ollama":
                 try:
@@ -408,7 +409,13 @@ class HTTPTransport:
                         raise ProviderError("unknown", "provider_response_too_large")
                     chunks.append(chunk)
                 bounded.check()
-        except (HTTPError, URLError, OSError, TimeoutError):
+        except HTTPError as error:
+            # A 4xx answer is the provider refusing the request before any generation (unknown model, bad request,
+            # missing key, rate limit): a definite failure the operator can act on. 408 and 5xx may have started work.
+            if error.code in HTTP_CLIENT_ERRORS and error.code != HTTP_REQUEST_TIMEOUT:
+                raise ProviderError("failed", f"provider_http_{error.code}") from None
+            raise ProviderError("unknown", "provider_transport_unconfirmed") from None
+        except (URLError, OSError, TimeoutError):
             raise ProviderError("unknown", "provider_transport_unconfirmed") from None
         try:
             value = json.loads(b"".join(chunks))
@@ -929,7 +936,7 @@ class Runner:
                 "Provider translation changed; review a new prepared request"
             )
         secret = None
-        if module.provider == "openai_responses":
+        if module.provider in REMOTE_ENDPOINTS:
             assert module.credential_env is not None
             try:
                 secret = self.secret_reader(module.credential_env)
@@ -970,7 +977,7 @@ class Runner:
                 ):
                     raise ProviderError("unknown", "provider_result_exceeds_limit")
                 charged: int | None = 0
-                if module.provider == "openai_responses":
+                if module.provider in REMOTE_ENDPOINTS:
                     assert module.pricing is not None
                     if (
                         result.input_tokens is None

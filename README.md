@@ -80,13 +80,13 @@ Details are in [Privacy and limits](#privacy-and-limits).
 
 Messages, tasks, knowledge, decisions, and personal drafts live in the project's local database. Agents connect through the command-line interface (CLI) or Model Context Protocol (MCP), a standard tool interface for agent clients.
 
-Optional provider modules support manual handoffs, local Ollama jobs, and remote OpenAI Responses jobs. Opening the workspace, reading a brief, or polling messages does not start a model.
+Optional modules support local Ollama and six remote services: OpenAI, Anthropic, Gemini, Grok (xAI), OpenRouter, and OpenCode Zen. A manual module lets you exchange a reviewed text packet yourself. These are implemented connectors, not automatic agents. Opening the workspace, receiving a mention, reading a brief, or polling messages does not start a model. See [Providers](#providers) for setup and limits.
 
 ## What you can do
 
 | Area | Features |
 | --- | --- |
-| Conversations | Shared, private, and group audiences; formatted text; images; voice recordings; quotes; copy; paged history; message receipts; eligible message editing |
+| Conversations | Shared, private, and group audiences; formatted text; images; mentions; a resizable composer; optional local dictation; quotes; copy; paged history; separate received/read receipts; eligible message editing |
 | Personal workspace | Saved messages, per-conversation drafts, durable delivery retries, saved view and appearance preferences |
 | Tasks | Owners, priorities, due dates, status, filters, details, and movement between permitted conversations |
 | Decisions | Proposals, human approval, implementation evidence, independent verification, and history |
@@ -95,13 +95,46 @@ Optional provider modules support manual handoffs, local Ollama jobs, and remote
 | Ownership | Optional task-linked file or directory claims, conflict checks, explicit release, and history; disabled until a work policy is configured |
 | Providers | Reviewable outbound requests, explicit generation or manual import, separate publication, limits, and durable run records |
 | Recovery | Consistent database backups, verification manifests, a human backup panel, and restore to a new file |
-| Access | Browser, command line, and MCP; account-scoped search and export |
+| Access | Browser, command line, and MCP; account-scoped search and export; remove/restore participants while keeping their history |
+
+## Six additions prepared on 13 October 2026
+
+- **Clearer receipts.** Received means the server recorded retrieval of that message for that account. Read means a browser or agent advanced its conversation marker. An agent's conversation request counts the new and edited rows in the local server's response. CLI `wait` shows only new messages; it can show an empty list after an internal response counted an edited message as read. Use `messages` or MCP `collab_messages` to see those corrections. Neither status proves attention, understanding, approval, or completed work.
+- **Mentions.** Type `@` and choose a current conversation member. A stable identity keeps the mention attached after a rename. Mentions highlight messages and add an unread badge; they do not wake an agent, start a model, or grant access to another conversation.
+- **More room to write.** Drag the composer's top edge or use its keyboard controls. The browser remembers the height and limits it on small screens. Saved drafts remain separate from this browser-only setting.
+- **Remove and restore participants.** A human can remove another account with a reason. New application actions are refused, including provider actions through a previously obtained runner. Restoration preserves the identity and its retained history. It does not restore old browser sessions; sign in again. Removal cannot recall text already downloaded or sent to a model.
+- **Optional dictation.** Record a short memo, check the returned text in the draft, then send it as text. The speech program and model must be installed and configured deliberately.
+- **Provider activation.** The ordinary launcher loads the two deliberately named private provider/grant files when present. Without provider configuration, the feature stays off. Generation and publication remain separate human or agent actions.
+
+The [User guide](docs/USER_GUIDE.md) explains these controls. The existing [screenshots](docs/screenshots/README.md) are fictional illustrations; they do not show every addition or prove a real provider or microphone worked.
+
+## Providers
+
+| Service or method | Implemented adapter |
+| --- | --- |
+| OpenAI | Responses API |
+| Anthropic | Messages API |
+| Gemini | `generateContent` API |
+| Grok (xAI) | Chat Completions API |
+| OpenRouter | Chat Completions API |
+| OpenCode Zen | Chat Completions API |
+| Local Ollama | Native chat endpoint on `127.0.0.1` |
+| Manual handoff | Review and exchange a text packet yourself; no model call by the app |
+
+The six remote adapters and local Ollama make seven API/local connectors. Manual handoff is a separate method. Adapters accept text only; they do not submit image or audio attachment bytes.
+
+All example modules are disabled. Remote use needs a private configuration, a credential named through an environment variable, current pricing evidence, and explicit limits. Human launching also needs a separate grant. Both caller and agent must be active and belong to the permitted conversation. The ordinary launcher reads `providers.local.json` and `adapter-human-policy.local.json` beside `config.json`; it does not create keys, activate unresolved modules, or install software.
+
+The remote adapters have synthetic request/response tests. No paid-provider end-to-end call was measured for this preparation. A supported adapter does not mean every model or provider feature works. Ollama needs a chat-capable model and an operator check of local-only operation; thinking is disabled for its draft request. OpenCode Zen's chat route is a beta interface and cannot reach models served only in other formats. The xAI output-limit field is an implementation assumption that needs a real provider check. See [Integrations](docs/INTEGRATIONS.md) for exact endpoints and other limits.
+
+Before a remote call, inspect **Prepare preview**. Generation can send permitted context outside the computer. Pricing and reservations limit jobs admitted by this app; they are not a cap on the provider account's total bill. A timeout or uncertain response can leave cost unknown. Review the original run before retrying, and publish its result only through the separate **Publish** action.
 
 ## Requirements
 
 - Python **3.12 or later**, with **Pillow 12.x** available in the chosen Python environment. Runtime constraints are declared in [requirements.txt](requirements.txt).
 - macOS or Linux. The launcher and server use Unix file locking through `fcntl`; native Windows is unsupported.
-- A current browser. Voice recording also needs microphone permission and browser support for `MediaRecorder`.
+- A current browser. Dictation also needs microphone permission and browser support for `MediaRecorder`.
+- **Optional, for dictation only:** [whisper.cpp](https://github.com/ggml-org/whisper.cpp) (MIT license; its `whisper-cli` program) and one of its speech models, installed separately and named in the `dictation` section of the configuration ([Configuration](docs/CONFIGURATION.md#optional-dictation)). Without it the app works as before and shows no microphone button.
 - For development: Playwright and its browser binaries, Ruff, and mypy, declared in [requirements-dev.txt](requirements-dev.txt). They are not runtime requirements.
 
 Use an isolated Python environment if needed. Install dependencies deliberately; starting the application does not install them.
@@ -162,7 +195,9 @@ Each client uses its own identity. Tool access does not grant permission to oper
 
 Local storage is not encrypted by this application. A process with access under the same operating-system account may read local state or credentials. Conversation membership is enforced by the application, not an operating-system sandbox.
 
-Voice recordings stay in the local attachment path; this feature does not transcribe them or invoke a speech service. Physical microphone behavior has not been verified for this release. Check your browser and device before relying on voice recording.
+Dictation uses the local speech program named in the configuration. The app uses a temporary audio file, removes it after the attempt, and returns text for review. It does not save that dictation audio in conversation records or call an internet speech service itself. Earlier voice attachments remain stored and playable. Check the text before sending: speech recognition can mishear words. Physical microphones and a user's real voice have not been verified for this preparation.
+
+The chosen executable is trusted local software. An empty child environment and no shell reduce accidental disclosure, but do not prevent that program from reading files, using the network, or keeping its own output. The app provides no operating-system sandbox. English-only `.en` speech models need a multilingual replacement for other languages; choose the matching language setting. Starting the app never installs the program, model, or dependencies.
 
 A configured remote provider sends the reviewed text request and selected context outside the computer. A manual handoff can also disclose that material if you copy it to an external service. Review the exact prepared packet and provider policy before sending. See [Integrations](docs/INTEGRATIONS.md).
 

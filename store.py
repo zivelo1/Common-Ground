@@ -20,6 +20,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import attachments
 import backups
+import dictation
 
 DEFAULT_LISTEN_PORT = 0
 MAX_TCP_PORT = 65535
@@ -29,6 +30,8 @@ SECONDS_PER_DAY = 86400
 MAX_BOOKMARKS = 2000
 
 MAX_TITLE = 200
+# Removing or restoring a participant names it, the name the caller saw (a stale view is refused) and a reason.
+PARTICIPANT_STATUS_FIELDS = {"id", "seen_name", "reason"}
 TASK_DETAIL_FIELDS = frozenset({"priority", "due_date", "version"})   # required in every task details update
 TASK_TEXT_FIELDS = frozenset({"title", "body"})                        # optional: edited only when sent
 MAX_MESSAGE = 16000
@@ -54,7 +57,11 @@ MAX_SQLITE_INTEGER = (1 << 63) - 1
 TOKEN_PATTERN = re.compile(r"[A-Za-z0-9_-]{32,128}\Z")
 LOGO_ROOT = Path(__file__).resolve().parent / "static" / "logos"
 LOGO_NAME = re.compile(r"[a-z0-9][a-z0-9-]{0,63}\Z")
-PARTICIPANT_ID = re.compile(r"[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}\Z")
+PARTICIPANT_ID_PATTERN = r"[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}"
+PARTICIPANT_ID = re.compile(PARTICIPANT_ID_PATTERN + r"\Z")
+# An @mention: the plain-text marker @{participant-id}; the id, not the shown name, so a rename never
+# misdirects it.
+MENTION_MARKER = re.compile(r"@\{(" + PARTICIPANT_ID_PATTERN + r")\}")
 DECISION_STATUSES = {"proposed", "approved", "implemented", "verified", "revoked"}
 TASK_STATUS_LABELS = {"open": "Open", "working": "In progress", "blocked": "Blocked", "done": "Done", "rejected": "Rejected"}
 TASK_STATUSES = set(TASK_STATUS_LABELS)
@@ -306,7 +313,11 @@ def load_config(path):
     if not state_dir.is_absolute():
         state_dir = path.parent / state_dir
     roots, files = source_config(config, path.parent)
-    return {"title": title, "project_label": project, "state_dir": state_dir.resolve(), "participants": checked, "source_roots": roots, "source_files": files, "port": port, "browser_session_days": session_days, "knowledge_check": knowledge_check_config(config), "work_permissions": work_permission_config(config, roots)}
+    try:
+        speech = dictation.settings(config.get("dictation"))
+    except ValueError as error:
+        raise APIError(400, str(error)) from error
+    return {"dictation": speech, "title": title, "project_label": project, "state_dir": state_dir.resolve(), "participants": checked, "source_roots": roots, "source_files": files, "port": port, "browser_session_days": session_days, "knowledge_check": knowledge_check_config(config), "work_permissions": work_permission_config(config, roots)}
 
 
 class Store:
@@ -319,6 +330,8 @@ class Store:
         self.credentials_dir.mkdir(exist_ok=True, mode=0o700)
         os.chmod(self.credentials_dir, 0o700)
         self.db_path = self.state_dir / "collaboration.sqlite3"
+        # Optional local speech-to-text; None (no microphone button) unless the configuration names the program.
+        self.dictation = dictation.Dictation(config["dictation"]) if config.get("dictation") else None
         self._write_lock = threading.RLock()
         self._refresh_lock = threading.Lock()
         # One backup at a time; the id of the run in progress tells a live run from an interrupted one.
@@ -339,6 +352,10 @@ class Store:
                   id INTEGER PRIMARY KEY AUTOINCREMENT, participant_id TEXT NOT NULL REFERENCES participants(id),
                   old_name TEXT NOT NULL, new_name TEXT NOT NULL, actor_id TEXT NOT NULL REFERENCES participants(id),
                   created_at TEXT NOT NULL);
+                CREATE TABLE IF NOT EXISTS participant_status_history (
+                  id INTEGER PRIMARY KEY AUTOINCREMENT, participant_id TEXT NOT NULL REFERENCES participants(id),
+                  action TEXT NOT NULL CHECK(action IN ('remove','restore')),
+                  actor_id TEXT NOT NULL REFERENCES participants(id), reason TEXT NOT NULL, created_at TEXT NOT NULL);
                 CREATE TABLE IF NOT EXISTS channels (
                   id TEXT PRIMARY KEY, title TEXT NOT NULL, kind TEXT NOT NULL);
                 CREATE TABLE IF NOT EXISTS members (
@@ -464,6 +481,9 @@ class Store:
                 db.execute(f"ALTER TABLE tasks ADD COLUMN priority TEXT NOT NULL DEFAULT '{DEFAULT_TASK_PRIORITY}'")
             if "due_date" not in task_columns:
                 db.execute("ALTER TABLE tasks ADD COLUMN due_date TEXT")
+            # A removed participant is kept and marked inactive, never deleted: its history keeps its author.
+            if "active" not in {row[1] for row in db.execute("PRAGMA table_info(participants)")}:
+                db.execute("ALTER TABLE participants ADD COLUMN active INTEGER NOT NULL DEFAULT 1")
             # Existing records may already have been read through older clients.
             db.execute("INSERT OR IGNORE INTO message_edit_state SELECT id,body,1,NULL,0 FROM messages")
             source_columns = {row[1] for row in db.execute("PRAGMA table_info(sources)")}
@@ -475,10 +495,12 @@ class Store:
                 token = self._credential(person["id"])
                 # config.json names a participant only when it is first added; after that the database owns the shown
                 # name, so a rename in the app (rename_participant) survives every restart.
-                db.execute("""INSERT INTO participants VALUES (?, ?, ?, ?)
+                db.execute("""INSERT INTO participants (id,name,kind,token_hash) VALUES (?, ?, ?, ?)
                     ON CONFLICT(id) DO UPDATE SET kind=excluded.kind,
                     token_hash=excluded.token_hash""", (person["id"], person["name"], person["kind"], self._hash(token)))
-                db.execute("INSERT OR IGNORE INTO members VALUES (?, ?)", ("workspace", person["id"]))
+                # A participant a human removed stays removed: config.json never re-activates or re-adds it.
+                db.execute("INSERT OR IGNORE INTO members SELECT 'workspace',id FROM participants WHERE id=? AND active=1",
+                           (person["id"],))
 
     @staticmethod
     def _hash(token):
@@ -542,7 +564,8 @@ class Store:
         if not isinstance(token, str) or not TOKEN_PATTERN.fullmatch(token):
             raise APIError(401, "Authentication required")
         with self.connection() as db:
-            person = db.execute("SELECT id,name,kind FROM participants WHERE token_hash=?", (self._hash(token),)).fetchone()
+            person = db.execute("SELECT id,name,kind FROM participants WHERE token_hash=? AND active=1",
+                                (self._hash(token),)).fetchone()
         if person is None:
             raise APIError(401, "Authentication required")
         return dict(person)
@@ -562,7 +585,7 @@ class Store:
             raise APIError(401, "Authentication required")
         with self.connection() as db:
             actor = db.execute("""SELECT p.id,p.name,p.kind FROM browser_sessions s
-                JOIN participants p ON p.id=s.participant_id AND p.token_hash=s.credential_hash
+                JOIN participants p ON p.id=s.participant_id AND p.token_hash=s.credential_hash AND p.active=1
                 WHERE s.session_hash=? AND s.expires_at>?""", (self._hash(session), time.time())).fetchone()
         if actor is None:
             raise APIError(401, "Authentication required")
@@ -571,6 +594,22 @@ class Store:
     def revoke_browser_session(self, session):
         with self.connection(write=True) as db:
             db.execute("DELETE FROM browser_sessions WHERE session_hash=?", (self._hash(session),))
+
+    def dictate(self, actor, data):
+        """A human's spoken memo as text for their own message box; nothing is stored or posted."""
+        if self.dictation is None:
+            raise APIError(409, "Dictation is not configured")
+        if actor["kind"] != "human":
+            raise APIError(403, "Only a human can dictate")
+        if set(data) != {"data"}:
+            raise APIError(400, "Send only the recording")
+        with self.connection() as db:
+            names = [row["name"] for row in db.execute("SELECT name FROM participants WHERE active=1 ORDER BY name,id")]
+        topics = [self.config["title"], self.config["project_label"]]
+        try:
+            return {"text": self.dictation.transcribe(data["data"], topics, names)}
+        except dictation.DictationError as error:
+            raise APIError(error.status, str(error)) from error
 
     def add_image(self, actor, data):
         return self._add_attachment(actor, data, attachments.validate_image, "image", "/api/images/")
@@ -669,6 +708,9 @@ class Store:
             COALESCE(s.version,1) version,s.edited_at FROM messages m
             JOIN participants p ON p.id=m.author_id LEFT JOIN message_edit_state s ON s.message_id=m.id WHERE m.id=?""", (message_id,)).fetchone())
         row["can_edit"] = bool(actor is not None and Store._edit_allowed(db, actor, row))
+        # Only current members of the conversation are mentioned: another id stays plain text and notifies nobody.
+        members = {member[0] for member in db.execute("SELECT participant_id FROM members WHERE channel_id=?", (row["channel_id"],))}
+        row["mentions"] = list(dict.fromkeys(ident for ident in MENTION_MARKER.findall(row["body"]) if ident in members))
         return row
 
     def _state(self, db, actor):
@@ -679,14 +721,19 @@ class Store:
             channel["members"] = [member[0] for member in db.execute("SELECT participant_id FROM members WHERE channel_id=? ORDER BY participant_id", (row["id"],))]
             channel["unread"] = db.execute("""SELECT COUNT(*) FROM messages WHERE channel_id=? AND author_id<>?
                 AND id>COALESCE((SELECT message_id FROM read_markers WHERE channel_id=? AND participant_id=?),0)""", (row["id"], actor["id"], row["id"], actor["id"])).fetchone()[0]
+            # The reader's unread messages here that mention them (the sidebar's "@" badge); the reader is a member.
+            channel["unread_mentions"] = db.execute("""SELECT COUNT(*) FROM messages WHERE channel_id=? AND author_id<>?
+                AND id>COALESCE((SELECT message_id FROM read_markers WHERE channel_id=? AND participant_id=?),0)
+                AND instr(body,?)>0""", (row["id"], actor["id"], row["id"], actor["id"], "@{" + actor["id"] + "}")).fetchone()[0]
             # Read receipts (): the newest message each current member has acknowledged here.
             channel["read_markers"] = dict(db.execute("""SELECT k.participant_id,k.message_id FROM read_markers k
                 JOIN members m ON m.channel_id=k.channel_id AND m.participant_id=k.participant_id WHERE k.channel_id=?""", (row["id"],)).fetchall())
             channels.append(channel)
         logos = {person["id"]: person.get("logo") for person in self.config["participants"]}
-        return {"capabilities": {"file_claims": True}, "workspace": {key: self.config[key] for key in ("title", "project_label")}, "me": actor,
-            "participants": [{**dict(row), "logo": logos.get(row["id"])}
-                             for row in db.execute("SELECT id,name,kind FROM participants ORDER BY name,id")],
+        speech = {"max_seconds": self.dictation.config.max_seconds} if self.dictation and actor["kind"] == "human" else None
+        return {"capabilities": {"file_claims": True, "dictation": speech}, "workspace": {key: self.config[key] for key in ("title", "project_label")}, "me": actor,
+            "participants": [{**dict(row), "active": bool(row["active"]), "logo": logos.get(row["id"])}
+                             for row in db.execute("SELECT id,name,kind,active FROM participants ORDER BY name,id")],
             "channels": channels,
             "task_options": {"statuses": TASK_STATUS_LABELS, "priorities": TASK_PRIORITIES, "default_priority": DEFAULT_TASK_PRIORITY},
             "decisions": self._visible_rows(db, actor, "decisions"), "tasks": self._visible_rows(db, actor, "tasks"),
@@ -712,7 +759,8 @@ class Store:
             if db.execute("SELECT 1 FROM participants WHERE id=?", (ident,)).fetchone():
                 raise APIError(409, "Participant already exists")
             token = self._credential(ident)
-            db.execute("INSERT INTO participants VALUES (?,?,?,?)", (ident, name, "agent", self._hash(token)))
+            db.execute("INSERT INTO participants (id,name,kind,token_hash) VALUES (?,?,?,?)",
+                       (ident, name, "agent", self._hash(token)))
             db.execute("INSERT INTO members VALUES (?,?)", ("workspace", ident))
         return {"id": ident, "name": name, "kind": "agent"}
 
@@ -741,6 +789,45 @@ class Store:
             db.execute("INSERT INTO participant_renames (participant_id,old_name,new_name,actor_id,created_at) VALUES (?,?,?,?,?)",
                        (ident, person["name"], name, actor["id"], now()))
         return {"id": ident, "name": name, "kind": person["kind"]}
+
+    def remove_participant(self, actor, data):
+        # The participant and everything it wrote stay; it only becomes inactive, so its token
+        # and every browser session stop working at the next request, and a restart never brings it back.
+        return self._set_participant_active(actor, data, False)
+
+    def restore_participant(self, actor, data):
+        return self._set_participant_active(actor, data, True)
+
+    def _set_participant_active(self, actor, data, active):
+        self._human(actor)
+        if set(data) != PARTICIPANT_STATUS_FIELDS:
+            raise APIError(400, "Send exactly id, seen_name and reason")
+        ident = participant_id(data.get("id"))
+        seen = text_field(data, "seen_name", MAX_TITLE)
+        reason = " ".join(text_field(data, "reason", MAX_TITLE).split())
+        if not active and ident == actor["id"]:
+            raise APIError(409, "You cannot remove yourself")
+        with self.connection(write=True) as db:
+            # The caller signed in before this transaction began: check again inside it, so of two humans removing
+            # each other at once the second is refused. A remover is an active human other than the target, so at
+            # least one active human always remains.
+            if not db.execute("SELECT 1 FROM participants WHERE id=? AND active=1", (actor["id"],)).fetchone():
+                raise APIError(403, "Your account was removed meanwhile")
+            person = db.execute("SELECT name,kind,active FROM participants WHERE id=?", (ident,)).fetchone()
+            if person is None:
+                raise APIError(404, "Participant not found")
+            if person["name"] != seen:
+                raise APIError(409, "The name changed meanwhile; reload first")
+            if bool(person["active"]) == active:
+                raise APIError(409, "The participant is already active" if active else "The participant is already removed")
+            db.execute("UPDATE participants SET active=? WHERE id=?", (int(active), ident))
+            db.execute("INSERT INTO participant_status_history (participant_id,action,actor_id,reason,created_at) VALUES (?,?,?,?,?)",
+                       (ident, "restore" if active else "remove", actor["id"], reason, now()))
+            if active:
+                db.execute("INSERT OR IGNORE INTO members VALUES (?,?)", ("workspace", ident))
+            else:
+                db.execute("DELETE FROM browser_sessions WHERE participant_id=?", (ident,))
+        return {"id": ident, "name": person["name"], "kind": person["kind"], "active": active}
 
     @staticmethod
     def _rules_rows(db):
@@ -788,9 +875,12 @@ class Store:
             raise APIError(400, "A private channel needs at least two members")
         with self.connection(write=True) as db:
             for member in members:
-                if not db.execute("SELECT 1 FROM participants WHERE id=?", (member,)).fetchone():
+                row = db.execute("SELECT active FROM participants WHERE id=?", (member,)).fetchone()
+                if row is None:
                     raise APIError(400, "Unknown participant")
-            channel = {"id": uuid4().hex, "title": title, "kind": "private" if len(members) == 2 else "group", "members": members, "unread": 0}
+                if not row["active"]:
+                    raise APIError(409, "A removed participant cannot join a conversation")
+            channel = {"id": uuid4().hex, "title": title, "kind": "private" if len(members) == 2 else "group", "members": members, "unread": 0, "unread_mentions": 0}
             db.execute("INSERT INTO channels VALUES (?,?,?)", (channel["id"], title, channel["kind"]))
             db.executemany("INSERT INTO members VALUES (?,?)", [(channel["id"], member) for member in members])
         return channel
@@ -859,7 +949,12 @@ class Store:
             rows = db.execute("SELECT id,author_id FROM messages WHERE channel_id=? AND id>? ORDER BY id LIMIT ?", (channel_id, after, MAX_PAGE)).fetchall()
             changes = db.execute("SELECT e.id,e.message_id FROM message_edits e JOIN messages m ON m.id=e.message_id WHERE m.channel_id=? AND e.id>? ORDER BY e.id LIMIT ?", (channel_id, changes_after, MAX_PAGE)).fetchall()
             updates = [db.execute("SELECT id,author_id FROM messages WHERE id=?", (ident,)).fetchone() for ident in dict.fromkeys(change["message_id"] for change in changes)]
-            self._retrieved(db, actor, [*rows, *updates])
+            fetched = [*rows, *updates]
+            self._retrieved(db, actor, fetched)
+            if fetched and actor["kind"] == "agent":
+                # A conversation fetch counts as reading exactly the new and edited
+                # messages returned. Other views and an empty fetch do not mark read.
+                self._advance_read_marker(db, channel_id, actor["id"], max(row["id"] for row in fetched))
             return {"messages": self._message_rows(db, actor, rows), "cursor": rows[-1]["id"] if rows else after,
                 "message_updates": self._message_rows(db, actor, updates), "change_cursor": changes[-1]["id"] if changes else changes_after}
 
@@ -1083,10 +1178,15 @@ class Store:
             self._member(db, actor, data.get("channel_id"))
             if not db.execute("SELECT 1 FROM messages WHERE id=? AND channel_id=?", (message_id, data["channel_id"])).fetchone():
                 raise APIError(400, "Message does not belong to the channel")
-            db.execute("""INSERT INTO read_markers VALUES(?,?,?) ON CONFLICT(channel_id,participant_id)
-                DO UPDATE SET message_id=MAX(read_markers.message_id,excluded.message_id)""", (data["channel_id"], actor["id"], message_id))
+            self._advance_read_marker(db, data["channel_id"], actor["id"], message_id)
             marker = db.execute("SELECT message_id FROM read_markers WHERE channel_id=? AND participant_id=?", (data["channel_id"], actor["id"])).fetchone()[0]
         return {"channel_id": data["channel_id"], "message_id": marker}
+
+    @staticmethod
+    def _advance_read_marker(db, channel_id, participant_id, message_id):
+        # A read marker only moves forward: an older acknowledgement never hides a newer one.
+        db.execute("""INSERT INTO read_markers VALUES(?,?,?) ON CONFLICT(channel_id,participant_id)
+            DO UPDATE SET message_id=MAX(read_markers.message_id,excluded.message_id)""", (channel_id, participant_id, message_id))
 
     @staticmethod
     def _version(data):

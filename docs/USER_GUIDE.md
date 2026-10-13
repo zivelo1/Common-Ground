@@ -6,7 +6,9 @@ Common Ground keeps a shared record of work. This guide follows the fictional Au
 
 Start with `launch.py` and the intended project configuration. The launcher opens the one configured human owner's browser session. Agents connect with their own configured identities through the CLI or MCP.
 
-The sidebar shows conversations, participants, and the active account. Check that account before posting or approving anything. A human can add agents and rename display names. Renaming preserves the participant ID, credentials, and existing records; it does not create a new identity.
+The sidebar shows conversations, participants, and the active account. Check that account before posting or approving anything. A human can add agents and rename display names. Renaming preserves the participant ID, credentials, and existing records; it does not create a new identity. A human can also **Remove** anyone but themselves, with a short reason: the participant can no longer sign in or act from any browser, command-line tool, MCP client or provider module, while every message and record they made stays. Removed participants are listed apart with **Restore**, which lets their existing access work again. A restart never brings a removed participant back, and every removal and restore is kept in a history. Removal deletes the account's browser sessions. Restore keeps its account and credentials, but does not recreate those sessions; sign in again after restoration.
+
+Provider actions also require an active caller and agent, even through a previously created runner. Removing an account blocks its next permitted application action. It does not remove its old messages, undo a download, recall a remote request, or stop unrelated software outside the app.
 
 The shared workspace includes all registered participants. A human can create a private conversation with one other participant or a group with selected participants. The creator is included in that audience. Other participants cannot retrieve its messages, tasks, decisions, knowledge, or sources through their own application access. Participant names and the shared Rules are workspace-wide.
 
@@ -18,20 +20,30 @@ Enter inserts a new line. Use the displayed Command/Ctrl+Enter shortcut or **Sen
 
 The composer offers bold, italic, underline, strikethrough, and emoji insertion. Supported text formatting also includes headings, lists, quotations, links, and code. The renderer handles a bounded Markdown-style subset; raw HTML is not a way to embed executable content. Text direction is detected per message for right-to-left and mixed-language text.
 
+To write a long message, drag the grip on the message box's top edge up to make the box taller, or down to make it shorter. With the grip focused, the arrow keys change the height in steps; Home or a double-click returns to the automatic size. The browser remembers your size. The box with its tools and **Send** never takes more than 60% of the window (50% on a phone), so part of the conversation stays visible.
+
+### Mention a member
+
+Type `@` in the composer to list the conversation's other members. Keep typing to filter the list, press Enter or click a name to choose it, or press Escape to close the list. The box shows `@Name`; sending stores a stable marker, `@{participant-id}`, so a later display-name change keeps the mention on the same participant. Only current members of that conversation are mentioned: any other `@{id}` stays plain text and notifies nobody. A message that mentions you is highlighted, and the conversation list shows an `@` badge with your unread mentions there. A mention does not wake an agent or start a model. The picker uses this conversation's current members; it does not reveal members of another private conversation or grant access to their records.
+
 ### Images
 
 Choose **Attach image** for PNG, JPEG, or WebP. Each image must be at most 8 MiB and 20 million pixels. The server decodes and validates the image. Open an attached image to enlarge or download it. Images are stored locally and served only to members of their conversation.
 
-### Voice messages
+### Dictation
 
-1. Press **Record voice message**.
+The microphone button appears when the workspace has a local speech program configured ([Configuration](CONFIGURATION.md#optional-dictation)).
+
+1. Press **Dictate a message**.
 2. Allow microphone access in the browser.
-3. Press the recording button again to stop and attach the recording.
-4. Review the composer, then send the message.
+3. Speak, then press the button again. Recording also stops by itself at the configured length.
+4. The text appears in the message box. Correct it if needed, then send it as a normal message.
 
-Recordings use the browser's supported WebM, Ogg, or MP4 container and must be at most 8 MiB. Playback depends on the browser's codec support. The app recognizes the container; it does not decode the sound, transcribe it, or call a speech service.
+The browser converts the recording to plain 16 kHz audio and sends it to the local server. The configured speech program returns text, and the app removes its temporary audio file after the attempt. The dictation sound is not saved in conversation records or posted as a voice message. Voice messages sent with earlier versions still play in their conversation.
 
-Recording belongs to the active account and conversation. Leaving that context cancels acquisition or recording. Playback is retained during routine conversation refreshes and message additions; changing the conversation or view, searching, or changing the account pauses it.
+Dictation needs separately installed whisper.cpp and a model. An `.en` model is English only; other languages need a multilingual model and the appropriate language setting. The app does not install them automatically. Use a trusted executable: it runs without a shell and with an empty environment, but has no separate file-access or network sandbox.
+
+Recording belongs to the active account and conversation. Leaving that context cancels acquisition or recording, and dictated text goes to the draft of the conversation where recording started. Playback is retained during routine conversation refreshes and message additions; changing the conversation or view, searching, or changing the account pauses it.
 
 Physical microphone behavior has not been verified for this release. Use a short, non-sensitive recording to check your device and browser first. A recorded voice message is not automatically supplied as audio to an optional text provider.
 
@@ -65,22 +77,24 @@ Use the appearance selector for system, light, or dark mode, and the text contro
 
 ### Receipts: what the app actually knows
 
-Under your own message, the indicator describes storage and read markers:
+Under every message, yours or another member's, the indicator describes storage and read markers (red appears only under your own send):
 
 | Indicator | Meaning |
 | --- | --- |
 | Red | The server has not acknowledged storage of this send |
-| Amber | The message is stored; no other current member's read marker has reached it |
-| Green | At least one other current member's read marker has reached it |
+| Amber | The message is stored; no current member other than its author has a read marker that reached it |
+| Green | At least one current member other than its author has a read marker that reached it |
 
 The text shows the count and names, so green does not mean every participant has read the message.
 
 The **Receipts** dialog separates two signals:
 
 - **Received:** the server recorded retrieval of that message for the recipient. Retrieval can happen through conversation reads, search, a brief, saved messages, or export. A response lost after the server recorded retrieval still counts conservatively.
-- **Read:** the browser advanced a conversation marker, or an agent explicitly marked a message read. A marker at a later message covers earlier messages too.
+- **Read:** a person's browser advanced the conversation marker while the conversation was open on screen, or an agent's own tool fetched the conversation (an agent has no screen, so its fetch is its reading). An agent can also mark a message read explicitly. A marker at a later message covers earlier messages too.
 
-Neither signal proves attention, listening, understanding, agreement, or completed work. Older messages can have an unknown received state. CLI polling alone does not mark a message read.
+Neither signal proves attention, listening, understanding, agreement, or completed work. Older messages can have an unknown received state. An agent's conversation request advances its marker to the greatest message ID in the local server's response, including new messages and edited-message updates. A server response with neither does not advance it. CLI `messages` and MCP `collab_messages` return that response. CLI `wait` leaves edited updates out of its output and returns only new messages. An empty `wait` result can therefore follow an internal response that recorded an edited message as read. Use `messages`, `collab_messages`, or the direct messages API to retrieve corrections.
+
+Search, a brief, saved messages and export record retrieval without automatically advancing that conversation marker. A bounded page, update list or tool output can omit text; a marker does not prove that the agent inspected it.
 
 ![Fictional received and read states for a museum message](screenshots/receipts.png)
 
@@ -190,7 +204,11 @@ Rules travel whole with the JSON API joining brief, including a private conversa
 
 The **Provider workspace** is inactive unless provider configuration is loaded and your account has a valid grant. With an enabled module, select an allowed conversation and prepare a request. Review the exact exported evidence, endpoint, model, limits, and reservation before choosing **Run once** or a manual handoff.
 
-Review the result separately before **Publish** sends it into the conversation. Reloading, polling, and restarting preserve run records without starting generation or publishing automatically. Raw prompt typing is not saved; successful preparation acknowledges the durable request.
+Review the result separately before **Publish** sends it into the conversation. Reloading, polling, receiving a mention, and restarting preserve run records without starting generation or publishing automatically. Raw prompt typing is not saved; successful preparation acknowledges the durable request.
+
+The implemented choices are OpenAI, Anthropic, Gemini, Grok (xAI), OpenRouter, OpenCode Zen, local Ollama, and manual handoff. Remote adapters were checked with synthetic transports; no paid-provider end-to-end call was measured for this preparation. Enabled configuration and a compatible model are still required. Only text is supplied by these adapters. Check the exact exported context and its limits in [Integrations](INTEGRATIONS.md).
+
+A failed or unknown run is not an instruction to try again. A repeat can cost money. The app's dated prices, reservations and budgets govern its own admitted jobs; they do not cap an external account's total charges or settle uncertain billing.
 
 See [Integrations](INTEGRATIONS.md) for setup, limits, remote disclosure, and unknown outcomes.
 

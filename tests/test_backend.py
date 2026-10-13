@@ -154,17 +154,19 @@ class BackendTests(unittest.TestCase):
         self.assertEqual(self.call("POST", "/api/channels", "a", {"title": "Unauthorized", "members": ["b"]})[0], 403)
 
     def test_unread_is_explicit_and_monotonic(self):
+        # A PERSON's fetch is not reading (the browser marks what is on screen). An agent's own fetch is its reading,
+        # tested in test_message_receipts.
         one = self.message("a", text="first", client="one")
         two = self.message("a", text="second", client="two")
-        self.ok("GET", "/api/messages?channel_id=workspace", "b")
-        self.assertEqual(self.ok("GET", "/api/state", "b")["channels"][0]["unread"], 2)
+        self.ok("GET", "/api/messages?channel_id=workspace", "human")
+        self.assertEqual(self.ok("GET", "/api/state", "human")["channels"][0]["unread"], 2)
         self.assertEqual(self.ok("GET", "/api/state", "a")["channels"][0]["unread"], 0)
-        self.ok("POST", "/api/read", "b", {"channel_id": "workspace", "message_id": two["id"]})
-        marker = self.ok("POST", "/api/read", "b", {"channel_id": "workspace", "message_id": one["id"]})
+        self.ok("POST", "/api/read", "human", {"channel_id": "workspace", "message_id": two["id"]})
+        marker = self.ok("POST", "/api/read", "human", {"channel_id": "workspace", "message_id": one["id"]})
         self.assertEqual(marker["message_id"], two["id"])
-        self.assertEqual(self.ok("GET", "/api/state", "b")["channels"][0]["unread"], 0)
-        self.assertEqual(self.call("POST", "/api/read", "b", {"channel_id": "workspace", "message_id": 999})[0], 400)
-        self.assertEqual(self.call("POST", "/api/read", "b", {"channel_id": "workspace", "message_id": True})[0], 400)
+        self.assertEqual(self.ok("GET", "/api/state", "human")["channels"][0]["unread"], 0)
+        self.assertEqual(self.call("POST", "/api/read", "human", {"channel_id": "workspace", "message_id": 999})[0], 400)
+        self.assertEqual(self.call("POST", "/api/read", "human", {"channel_id": "workspace", "message_id": True})[0], 400)
 
     def test_human_approval_separate_verification_history_and_cas(self):
         proposed = self.decision()

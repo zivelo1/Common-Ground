@@ -1,4 +1,5 @@
-"""Synthetic device controls for the real voice composer; no microphone is accessed."""
+"""Synthetic device controls for the real dictation composer; no microphone is accessed. "uploads" are the requests
+sent for dictation; each must belong to the account and conversation that recorded it."""
 from __future__ import annotations
 
 import base64
@@ -51,7 +52,7 @@ window.MediaRecorder = FixtureRecorder;
 
 class VoiceLifecycleBrowserTests(unittest.TestCase):
     @contextmanager
-    def page_fixture(self) -> Any:
+    def page_fixture(self, max_seconds: int = 120) -> Any:
         report: dict[str, Any] = {"uploads": [], "errors": [], "external": []}
         current = {"id": "human", "name": "Human", "kind": "human"}
 
@@ -72,7 +73,8 @@ class VoiceLifecycleBrowserTests(unittest.TestCase):
                 return
             data = request.request.post_data_json or {}
             answers = {
-                "/api/state": {"workspace": {"title": "Synthetic", "project_label": "Synthetic"},
+                "/api/state": {"capabilities": {"dictation": {"max_seconds": max_seconds}},
+                    "workspace": {"title": "Synthetic", "project_label": "Synthetic"},
                     "me": current, "participants": [current],
                     "channels": [{"id": channel, "title": channel, "kind": "shared", "members": ["human"],
                                   "unread": 0, "read_markers": {}} for channel in ["workspace", "other"]],
@@ -85,9 +87,9 @@ class VoiceLifecycleBrowserTests(unittest.TestCase):
                 "/api/personal/draft": {"channel_id": data.get("channel_id"), "body": data.get("body"),
                                         "version": data.get("version", 0) + 1},
             }
-            if url.path == "/api/audio":
+            if url.path == "/api/dictation":
                 report["uploads"].append(data)
-                answers[url.path] = {"id": "a" * 32, "url": "/api/audio/" + "a" * 32}
+                answers[url.path] = {"text": "Synthetic dictation"}
             if url.path not in answers:
                 request.fulfill(status=400, json={"error": "Unexpected synthetic request"})
                 return
@@ -154,7 +156,7 @@ class VoiceLifecycleBrowserTests(unittest.TestCase):
                     self.begin_pending(page)
                     self.grant(page)
                     self.assertEqual(page.evaluate("voiceFixture.tracks.at(-1).stops"), 1)
-                    self.assertEqual(page.locator("#record-voice").get_attribute("aria-label"), "Record voice message")
+                    self.assertEqual(page.locator("#record-voice").get_attribute("aria-label"), "Dictate a message")
                     self.assertFalse(page.locator("#record-voice").is_disabled())
             self.assertEqual(report["uploads"], [])
             self.assertEqual(report["errors"], [])
@@ -166,20 +168,37 @@ class VoiceLifecycleBrowserTests(unittest.TestCase):
             page.evaluate("voiceFixture.recorders[0].dispatchEvent(new Event('error'))")
             page.wait_for_timeout(60)
             self.assertEqual(page.evaluate("voiceFixture.tracks[0].stops"), 1)
-            self.assertEqual(page.locator("#record-voice").get_attribute("aria-label"), "Record voice message")
+            self.assertEqual(page.locator("#record-voice").get_attribute("aria-label"), "Dictate a message")
             self.assertEqual(report["uploads"], [])
             self.assertEqual(report["errors"], [])
 
-    def test_normal_stop_uploads_once_to_original_channel(self) -> None:
+    def synthetic_wav(self, page: Any) -> None:
+        # The fixture recorder's five bytes are no real audio; the page's converter is checked in the voice test.
+        page.evaluate("speechWav = async () => new Blob(['RIFF synthetic'], {type: 'audio/wav'})")
+
+    def test_normal_stop_dictates_once_into_the_original_conversation(self) -> None:
         with self.page_fixture() as (page, report):
+            self.synthetic_wav(page)
             self.begin_pending(page)
             self.grant(page)
             page.evaluate("selectChannel('other')")
             page.locator("#record-voice").click()
-            page.wait_for_function("() => !document.querySelector('#record-voice').classList.contains('recording')")
-            page.wait_for_timeout(100)
+            page.wait_for_function("() => app.drafts.get('workspace') === 'Synthetic dictation'")
             self.assertEqual(len(report["uploads"]), 1)
-            self.assertEqual(report["uploads"][0]["channel_id"], "workspace")
+            self.assertEqual(list(report["uploads"][0]), ["data"])
+            self.assertEqual(page.locator("#message-input").input_value(), "")      # 'other' is open; its draft is untouched
+            self.assertEqual(page.evaluate("voiceFixture.tracks[0].stops"), 1)
+            self.assertEqual(report["errors"], [])
+
+    def test_recording_stops_by_itself_at_the_limit(self) -> None:
+        with self.page_fixture(max_seconds=1) as (page, report):
+            self.synthetic_wav(page)
+            self.begin_pending(page)
+            self.grant(page)
+            self.assertEqual(page.evaluate("voiceFixture.recorders[0].state"), "recording")
+            page.wait_for_function("() => app.drafts.get('workspace') === 'Synthetic dictation'", timeout=4000)
+            self.assertEqual(page.evaluate("voiceFixture.recorders[0].state"), "inactive")
+            self.assertEqual(len(report["uploads"]), 1)
             self.assertEqual(page.evaluate("voiceFixture.tracks[0].stops"), 1)
             self.assertEqual(report["errors"], [])
 
@@ -216,9 +235,10 @@ class VoiceLifecycleBrowserTests(unittest.TestCase):
 
     def test_account_change_while_encoding_prevents_upload(self) -> None:
         with self.page_fixture() as (page, report):
+            self.synthetic_wav(page)
             page.evaluate("""() => {
                 fileData = () => new Promise(resolve => { window.finishEncoding = resolve; });
-                window.pendingAttachment = attachVoice(new Blob(['synthetic']), 1, 'workspace', app.personalGeneration);
+                window.pendingDictation = dictate(new Blob(['synthetic']), 'workspace', app.personalGeneration);
             }""")
             page.evaluate("showLogin()")
             page.evaluate("finishEncoding('GkXfowE=')")

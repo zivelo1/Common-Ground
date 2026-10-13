@@ -20,7 +20,7 @@ The final package uses `PUBLIC_FILES.txt` as an exact relative-path allowlist an
 
 | Category | Candidate files |
 | --- | --- |
-| Application | `app.py`, `store.py`, `attachments.py`, `backups.py`, `launch.py`, `cli.py`, `mcp.py`, `adapter_controller.py`, `adapter_runner.py` |
+| Application | `app.py`, `store.py`, `attachments.py`, `backups.py`, `dictation.py`, `launch.py`, `cli.py`, `mcp.py`, `adapter_controller.py`, `adapter_runner.py` |
 | Provider code | Individually listed source files under `providers/` |
 | Browser assets | Individually listed HTML, JavaScript, CSS, icons, and reviewed logo assets/provenance under `static/` |
 | Safe templates and dependencies | `config.example.json`, `providers.example.json`, `requirements.txt`, `requirements-dev.txt` |
@@ -32,7 +32,7 @@ The final package uses `PUBLIC_FILES.txt` as an exact relative-path allowlist an
 
 The table describes categories. The actual final manifest must list every file explicitly, without directory or wildcard entries. Do not copy older preview suites or fixtures without reviewing them.
 
-Never include actual `config.json`, provider/human-policy local configurations, state directories, databases and SQLite side files, credentials, browser profiles, backups, logs, exports, private source documents, test receipts, incident evidence, caches, or virtual environments. Private historical screenshots remain local evidence; producing public illustrations does not justify deleting incident history.
+Never include actual `config.json`, provider/human-policy local configurations, state directories, databases and SQLite side files, credentials, browser profiles, backups, logs, exports, private source documents, test receipts, incident evidence, caches, virtual environments, or patch artifacts such as `*.orig` and `*.rej`. Private historical screenshots remain local evidence; producing public illustrations does not justify deleting incident history.
 
 `.gitignore` is a second barrier. It is not an upload manifest and does not remove a file already tracked by Git.
 
@@ -57,6 +57,10 @@ python3 -B scripts/publication_check.py
 ```
 
 Stop if it fails. Have the maintainer regenerate and review the manifest after an intended change; do not bypass a mismatch.
+
+For the six additions prepared on 13 October, include the individually reviewed dictation, provider and test files as well as changed existing files. Review JavaScript test files explicitly too. Do not reuse an earlier manifest that omits these additions. After all source and documentation corrections, write the sorted exact file list first, then record every listed file's byte count and SHA-256 except the manifest itself. The list includes both `PUBLIC_FILES.txt` and `PUBLIC_MANIFEST.json`. Run the checker against those final bytes.
+
+The checker is a manifest/index check. It does not reject every unlisted file in a local working folder, inspect all Git history, or guarantee that every identifying detail is absent. Publish only the exact reviewed list, never the whole folder. A passing earlier suite is historical evidence; it does not validate corrections made later. Preserve the original preparation receipts privately and bind final checks to the actual release candidate.
 
 ## 4. Create an empty private GitHub repository
 

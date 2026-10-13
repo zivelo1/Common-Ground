@@ -1,6 +1,6 @@
-"""Offline Chromium check of read receipts (Collaboration). Under each of your own stored messages: an
-orange dot while no other member has read it, green once one has, with the count and exact names ("1/2 read: Codex;
-Atlas pending"); a red dot while the server has not acknowledged a send. Each message's Receipts dialog lists the other
+"""Offline Chromium check of read receipts (Collaboration). Under every stored message, yours or another member's:
+an orange dot while no member other than its author has read it, green once one has, with the count and exact names
+("1/2 read: Codex; Atlas pending"); a red dot while the server has not acknowledged a send. Each message's Receipts dialog lists the other
 current members with "Received <time>" or "Not received yet" and "Read" or "Not read yet"; an older message says its
 receive time is unknown; a failed load says so. All requests are intercepted synthetic fixtures; no server starts."""
 from __future__ import annotations
@@ -110,12 +110,18 @@ class MessageReceiptsBrowserTests(unittest.TestCase):
 
                 check("one_reader_is_green_with_names", summary(1) == ["1/2 read: Codex; Atlas pending", "read-summary read-some"])
                 check("no_reader_is_orange_with_names", summary(2) == ["0/2 read: Codex, Atlas pending", "read-summary read-none"])
-                check("other_peoples_messages_have_no_summary", summary(4) == [])
-                markers.update(codex=4, atlas=2)                   # the next poll of the state carries the new markers
+                check("another_members_message_lists_everyone_but_its_author",
+                      summary(4) == ["0/2 read: Atlas, Curator pending", "read-summary read-none"])
+                align = "e => getComputedStyle(e).justifyContent"
+                check("each_summary_sits_on_its_message_side",
+                      page.locator('[data-message-id="4"] .read-summary').evaluate(align) == "flex-start"
+                      and page.locator('[data-message-id="1"] .read-summary').evaluate(align) == "flex-end")
+                markers.update(codex=4, atlas=2, curator=4)       # the next poll of the state carries the new markers
                 page.wait_for_function("() => document.querySelector('[data-message-id=\"2\"] .read-summary')?.textContent === '2/2 read: Codex, Atlas'")
                 check("the_summary_follows_the_polled_state",
                       summary(2) == ["2/2 read: Codex, Atlas", "read-summary read-some"]
-                      and summary(3) == ["1/2 read: Codex; Atlas pending", "read-summary read-some"])
+                      and summary(3) == ["1/2 read: Codex; Atlas pending", "read-summary read-some"]
+                      and summary(4) == ["1/2 read: Curator; Atlas pending", "read-summary read-some"])
                 page.evaluate("() => { app.outbox.push({channel_id: 'workspace', author_id: 'curator', author_name: 'Curator', body: 'Unconfirmed', client_id: 'qa-red', created_at: '2026-10-11T13:02:00+00:00', status: 'failed', error: 'Synthetic', durable: true}); renderMessages(); }")
                 check("an_unacknowledged_send_has_a_red_dot",
                       page.locator(".delivery-status .receipt-dot.receipt-unacknowledged").count() == 1

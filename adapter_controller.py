@@ -161,7 +161,7 @@ class AdapterController:
             (
                 p
                 for p in state["participants"]
-                if p["id"] == module.participant_id and p["kind"] == "agent"
+                if p["id"] == module.participant_id and p["kind"] == "agent" and p["active"]
             ),
             None,
         )
@@ -169,7 +169,7 @@ class AdapterController:
             (
                 p
                 for p in state["participants"]
-                if p["id"] == actor["id"] and p["kind"] == actor["kind"]
+                if p["id"] == actor["id"] and p["kind"] == actor["kind"] and p["active"]
             ),
             None,
         )

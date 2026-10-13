@@ -2,6 +2,8 @@
 
 These images show the real Common Ground interface with an entirely fictional **Aurora Museum** exhibition project. The names, dates, tasks, decisions, source references, message receipts and outcomes are demonstration fixtures. They do not represent real people, organisations or agent activity.
 
+These nine illustrations show an earlier prepared interface. They do not demonstrate every addition prepared on 13 October, including provider activation, participant removal/restoration or the final dictation flow. Use the [User guide](../USER_GUIDE.md) for current behavior. No real private screenshot is substituted for a missing illustration.
+
 The generator intercepts every browser request and serves the local application assets. It does not start an application server, read a real configuration or database, call a model provider, or request microphone access. The example source paths are fictional references; the screenshots do not prove that those files were indexed.
 
 ## Views

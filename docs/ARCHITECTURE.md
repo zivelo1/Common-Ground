@@ -16,7 +16,8 @@ Common Ground is a single local application with a browser interface and a SQLit
 | `backups.py` | Consistent database snapshots, manifests, verification, and new-file restore |
 | `adapter_controller.py` | Authenticated provider UI grants and bounded worker admission |
 | `adapter_runner.py` | Prepared context, limits, cost reservations, durable runs, and publication |
-| `providers/` | Manual, Ollama, and OpenAI Responses reference adapters |
+| `providers/` | Six remote adapters, local Ollama, and manual text handoff |
+| `dictation.py` | Optional WAV validation and a bounded call to the configured local speech program |
 
 The ordinary data path is browser/CLI/MCP → local HTTP API → store. An explicitly admitted provider run additionally uses the provider controller/runner and its selected adapter. Model output returns to a durable run record before a separate publication action.
 
@@ -27,6 +28,8 @@ The server binds to `127.0.0.1`. It validates local Host/Origin information and 
 Each identity has a local credential. The browser exchanges a login credential for an HttpOnly, SameSite=Strict cookie. Session hashes and expiration are stored in the database; the default lifetime is 30 days. The launcher supplies access through a URL fragment that the browser clears before normal requests. Tokens are not intended for publication or sharing as screenshots.
 
 Conversation membership is checked in the store for messages and conversation-scoped records. Search and export use the acting identity's scope. Shared Rules and the participant directory are workspace-wide. Human-only operations include participant management, conversation creation, Rules editing, decision approval, source refresh, and backup controls.
+
+Participants are marked inactive rather than deleted. Removal and restoration preserve identity and history. Removal deletes browser sessions; restoration keeps credentials but needs a fresh browser login. Provider permission checks require an active agent and an active caller, including when a caller uses an existing runner. These checks do not recall outbound context already sent or stop unrelated processes.
 
 This protects normal application access. It is not isolation from a process that can read files under the same operating-system account. The database is not encrypted by the app, and possession of a human credential does not prove a physical person performed an action.
 
@@ -42,11 +45,11 @@ Startup adds required schema elements to the existing database. File-claim table
 
 ## Browser lifecycle
 
-The browser maintains a cache of visible records and pages older messages. Durable personal state is synchronized to the server under the acting account, so acknowledged drafts and pending sends do not depend on a particular browser port. Browser-only text size remains local to that browser origin.
+The browser maintains a cache of visible records and pages older messages. Durable personal state is synchronized to the server under the acting account, so acknowledged drafts and pending sends do not depend on a particular browser port. Browser-only text size and composer height remain local to that browser origin. The resize grip supports dragging, arrow keys and reset; viewport limits keep conversation space visible on mobile. These settings are separate from database-backed drafts.
 
 Asynchronous operations carry an account generation so stale completions cannot attach a result to a later account session. Voice acquisition and recording also capture their conversation. Cleanup stops microphone tracks when that context ends. Audio players are retained for the same rendered message across conversation refreshes and new-message additions, and paused on navigation or search.
 
-Voice data is recorded by the browser and stored locally. The server checks the supported container signature and size; it does not decode, transcribe, or semantically inspect the sound. Physical microphone behavior is an unverified release limit.
+Dictation audio is recorded by the browser, decoded and resampled there to 16 kHz mono 16-bit WAV, and sent to the local server. The server checks the format, length and loudness, runs the configured local `whisper-cli` without a shell and with an empty environment, removes the temporary file after the attempt, and returns text for draft review. It stores no dictation audio in conversation records. The operator installs and selects the executable/model separately. There is no network or filesystem sandbox around that executable; its own behavior remains outside these application checks. Voice messages stored by earlier versions are still served to their conversation's members. Physical microphone behavior is an unverified release limit.
 
 ## Receipt and editing semantics
 
@@ -54,9 +57,9 @@ Storage acknowledgement, retrieval, and read markers are separate:
 
 - A storage acknowledgement confirms that the server accepted the logical message.
 - A retrieval timestamp is recorded before releasing message content to another participant; a lost response remains conservatively retrieved.
-- A read marker is the greatest acknowledged message position for a participant in a conversation.
+- A read marker is the greatest acknowledged message position for a participant in a conversation. A person's browser advances it while the conversation is on screen; an agent's local conversation response advances it to the greatest message ID in its new messages or edited-message updates. A response with neither advances nothing.
 
-A later read marker can cover earlier messages without proving they were individually viewed. Search, exports, briefs, and bookmarks can retrieve message text. Neither signal proves human attention, model understanding, or voice playback.
+CLI `wait` reads the local conversation response but leaves edited-message updates out of its outward output. It can therefore return an empty new-message list after the server recorded an edited message as read. The marker describes the server-response boundary, not the completeness of a client's display. A later read marker can cover earlier messages without proving they were individually viewed. Search, exports, briefs, and bookmarks can retrieve message text. Neither signal proves human attention, model understanding, or voice playback.
 
 Editing requires the author, eligibility, an exact version, and no other participant's retrieval or read coverage. This conservative window prevents silently changing a message already released as evidence. History retains accepted edits.
 
@@ -78,9 +81,11 @@ Claims record coordination. They do not acquire an operating-system lock on the 
 
 ## Provider jobs
 
-Disabled provider examples remain unresolved until the operator supplies a registered identity, channel export allowlist, limits, and provider-specific requirements. Human launching requires a separate grant, with both caller and agent in the audience.
+Disabled provider examples remain unresolved until the operator supplies a registered identity, conversation export allowlist, limits, and provider-specific requirements. Human launching requires a separate grant, with both caller and agent active and in the audience. The ordinary launcher passes the deliberately named private files when present; it does not generate a key, install a dependency, or fill missing activation settings.
 
-Preparation freezes the outbound context and request fingerprint. Remote admission reserves a pessimistic amount using dated prices, output limits, and configured model input bounds. The runner records returned usage or uncertainty. This accounting does not cover unrelated provider activity.
+The reviewed registry contains OpenAI Responses, Anthropic Messages, Gemini generateContent, and Chat Completions entries for xAI/Grok, OpenRouter and OpenCode Zen. Their remote endpoints are fixed per entry. Local Ollama uses an explicit loopback chat endpoint; manual handoff calls no model. All are text-only. Synthetic transports exercise the remote formats; paid-provider end-to-end operation was not measured for this preparation.
+
+Preparation freezes the outbound context and request fingerprint. Remote admission reserves a pessimistic amount using dated prices, output limits, and configured model input bounds. The runner records returned usage or uncertainty. This accounting does not cover unrelated provider activity or establish the external account's final bill. Client errors other than 408 are classified as failed; timeouts, server errors and lost connections can leave usage and billing unknown.
 
 Run and publish are explicit separate transitions. Restart recovers interrupted run records without replaying generation or publication. Repeating a generation can incur another external charge; confirming an uncertain publication retains its original operation identity.
 

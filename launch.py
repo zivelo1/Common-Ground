@@ -17,6 +17,10 @@ from store import APIError, load_config
 
 STARTUP_TIMEOUT_SECONDS = 15
 LAUNCH_POLL_INTERVAL_SECONDS = 0.15
+# Provider controls are switched on only by the private files the operator places beside the instance config
+# (the names the integration guide uses; the ".local" files stay out of any publication).
+PROVIDER_FILE = "providers.local.json"
+HUMAN_POLICY_FILE = "adapter-human-policy.local.json"
 
 
 def instance(config_path: Path) -> tuple[Path, str]:
@@ -34,6 +38,21 @@ def live(config_path: Path, human: str) -> bool:
     except (OSError, ValueError, RuntimeError):
         return False
     return True
+
+
+def adapter_arguments(config_path: Path) -> list[str]:
+    """The app's provider arguments from the instance's own files: none without them (no provider controls, as
+    before); a human launch policy needs the provider file it grants modules of."""
+    providers = config_path.with_name(PROVIDER_FILE)
+    policy = config_path.with_name(HUMAN_POLICY_FILE)
+    if policy.exists() and not providers.exists():
+        raise ValueError(f"{policy.name} needs {providers.name} beside the instance config")
+    arguments: list[str] = []
+    if providers.exists():
+        arguments += ["--providers", str(providers)]
+    if policy.exists():
+        arguments += ["--adapter-human-policy", str(policy)]
+    return arguments
 
 
 def stopped(state: Path, previous_boot: str) -> bool:
@@ -81,6 +100,7 @@ def main() -> int:
             print("This workspace is already stopped.")
         return 0
     if not live(config_path, human):
+        adapters = adapter_arguments(config_path)
         state.mkdir(parents=True, exist_ok=True, mode=0o700)
         os.chmod(state, 0o700)
         log_path = state / "server.log"
@@ -88,7 +108,7 @@ def main() -> int:
         os.chmod(log_path, 0o600)
         with os.fdopen(fd, "ab") as log:
             child = subprocess.Popen([sys.executable, "-B", str(Path(__file__).with_name("app.py")),
-                                      "--config", str(config_path), "--port", str(port)],
+                                      "--config", str(config_path), "--port", str(port), *adapters],
                                      stdin=subprocess.DEVNULL, stdout=log, stderr=log,
                                      start_new_session=True, close_fds=True)
         deadline = time.monotonic() + STARTUP_TIMEOUT_SECONDS

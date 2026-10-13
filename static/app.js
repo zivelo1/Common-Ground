@@ -19,6 +19,14 @@ const DEFAULT_CONVERSATION_TEXT_SIZE = 14;
 const MESSAGE_RENDER_PAGE_SIZE = 50;
 const MAX_HISTORY_REQUESTS = 20;
 const CONVERSATION_TEXT_SIZE_KEY = 'common-ground.conversation-text-size';
+// The resizable message box: the height a reader chose is kept per browser, like the text size.
+const COMPOSER_HEIGHT_KEY = 'common-ground.composer-height';
+const COMPOSER_RESIZE_STEP = 24;          // px per arrow key press on the grip
+// The whole message area (box, tools, Send row) takes at most this share of the window, so Send stays on screen
+// and part of the conversation stays visible.
+const COMPOSER_MAX_WINDOW_SHARE = 0.6;
+const COMPOSER_MAX_PHONE_SHARE = 0.5;     // on a phone-width screen
+const PHONE_WIDTH_QUERY = '(max-width: 540px)';
 const EMOJI_CHOICES = Object.freeze([
   ['👍', 'Thumbs up'], ['✅', 'Done'], ['❓', 'Question'], ['⚠️', 'Warning'],
   ['🙂', 'Smile'], ['🙏', 'Thank you'], ['💡', 'Idea'], ['📊', 'Chart'],
@@ -411,12 +419,20 @@ function renderSidebar() {
         unread.setAttribute('aria-label', `${channel.unread} unread messages`);
         item.append(unread);
       }
+      if (channel.unread_mentions > 0) {
+        const mentions = node('span', 'mention-badge', '@' + (channel.unread_mentions > 99 ? '99+' : channel.unread_mentions));
+        mentions.setAttribute('aria-label', `${channel.unread_mentions} unread mention${channel.unread_mentions === 1 ? '' : 's'} of you`);
+        item.append(mentions);
+      }
       channelList.append(item);
     }
   }
   if (!app.state.channels.length) channelList.append(node('p', 'channel-empty', 'Create a conversation to get started.'));
   $('participant-list').replaceChildren();
-  for (const participant of app.state.participants) {
+  // Removed participants keep their history; they are listed apart, and only a human can restore them. Only an
+  // explicit active: false counts as removed (a record without the field comes from before removal existed).
+  const removed = app.state.participants.filter((participant) => participant.active === false);
+  for (const participant of app.state.participants.filter((item) => item.active !== false)) {
     const item = node('div', 'participant');
     const copy = node('div', 'participant-copy');
     const name = node('p', 'participant-name', participant.name + (participant.id === app.state.me.id ? ' (you)' : ''));
@@ -424,9 +440,31 @@ function renderSidebar() {
     copy.append(name, node('p', 'participant-detail', participant.kind === 'human' ? 'Human · workspace owner' : 'Agent'));
     item.append(avatar(participant, 'small'), copy);
     if (app.state.me.kind === 'human') {
+      const actions = node('div', 'participant-actions');
       const rename = button('Rename', 'button subtle compact participant-rename', () => showRenameParticipant(participant));
       rename.setAttribute('aria-label', `Rename ${participant.name}`);
-      item.append(rename);
+      actions.append(rename);
+      if (participant.id !== app.state.me.id) {
+        const remove = button('Remove', 'button subtle compact participant-remove', () => showParticipantStatus(participant, false));
+        remove.setAttribute('aria-label', `Remove ${participant.name}`);
+        actions.append(remove);
+      }
+      item.append(actions);
+    }
+    $('participant-list').append(item);
+  }
+  if (removed.length) $('participant-list').append(node('p', 'participant-group', 'Removed'));
+  for (const participant of removed) {
+    const item = node('div', 'participant removed');
+    const copy = node('div', 'participant-copy');
+    const name = node('p', 'participant-name', participant.name);
+    name.dir = 'auto';
+    copy.append(name, node('p', 'participant-detail', 'History kept'));
+    item.append(avatar(participant, 'small'), copy);
+    if (app.state.me.kind === 'human') {
+      const restore = button('Restore', 'button subtle compact participant-restore', () => showParticipantStatus(participant, true));
+      restore.setAttribute('aria-label', `Restore ${participant.name}`);
+      item.append(restore);
     }
     $('participant-list').append(item);
   }
@@ -698,6 +736,13 @@ function appendInline(parent, value, depth = 0, allowLinks = true) {
   for (let index = 0; index < text.length;) {
     const char = text[index];
     if (char === '\\' && /[\\`*_{}\[\]()#+\-.!|>~]/.test(text[index + 1] || '')) { buffer += text[index + 1]; index += 2; continue; }
+    if (char === '@') {
+      const mention = text.slice(index).match(MENTION_MARKER);
+      if (mention && renderMentions.has(mention[1])) {
+        flush(); const chip = node('span', `mention${mention[1] === app.state?.me.id ? ' mention-me' : ''}`, '@' + person(mention[1]).name);
+        chip.dataset.participantId = mention[1]; parent.append(chip); index += mention[0].length; continue;
+      }
+    }
     if (char === '`') {
       const marker = text.slice(index).match(/^`+/)[0];
       const close = text.indexOf(marker, index + marker.length);
@@ -850,9 +895,11 @@ function appendMessageBlocks(parent, lines, depth = 0) {
     const paragraph = node('p'); paragraph.dir = 'auto'; appendInline(paragraph, body.join('\n')); parent.append(paragraph);
   }
 }
-function formattedMessage(body) {
+function formattedMessage(body, mentions = []) {
   const result = node('div', 'message-bubble formatted-message'); result.dir = 'auto';
-  appendMessageBlocks(result, plain(body).replace(/\r\n?/g, '\n').split('\n'));
+  renderMentions = new Set(mentions);
+  try { appendMessageBlocks(result, plain(body).replace(/\r\n?/g, '\n').split('\n')); }
+  finally { renderMentions = new Set(); }
   return result;
 }
 
@@ -878,7 +925,9 @@ function messageElement(message) {
   }
   let bubble;
   let formattingError;
-  try { bubble = formattedMessage(message.body); }
+  const mentions = message.mentions || mentionsIn(message.body, message.channel_id);
+  if (!own && mentions.includes(app.state.me.id)) result.classList.add('mentions-me');
+  try { bubble = formattedMessage(message.body, mentions); }
   catch (error) {
     // One malformed message must not hide later records or disable sending.
     bubble = node('div', 'message-bubble formatting-fallback', message.body);
@@ -908,7 +957,7 @@ function messageElement(message) {
       }));
     content.append(actions);
   }
-  if (own && message.id !== undefined && !pending && !failed) {
+  if (message.id !== undefined && !pending && !failed) {
     const summary = readSummary(message);
     if (summary) content.append(summary);
   }
@@ -922,11 +971,13 @@ function messageElement(message) {
   result.append(avatar(author), content);
   return result;
 }
-// Collaboration: under your own stored message, orange while no other member has read it, green once one has, with the
-// count and the exact names ("1/2 read: Codex; Atlas pending"). Read = the member's read marker is at or past the message.
+// Collaboration: under every stored message, a person's or an agent's, orange while no member other than its author
+// has read it, green once one has, with the count and the exact names ("1/2 read: Codex; Atlas pending"). Read = the
+// member's read marker is at or past the message: a person had the conversation open on screen, an agent's own tool
+// fetched the conversation.
 function readSummary(message) {
   const channel = app.state.channels.find((item) => item.id === message.channel_id);
-  const others = (channel?.members || []).filter((id) => id !== app.state.me.id);
+  const others = (channel?.members || []).filter((id) => id !== message.author_id);
   if (!others.length) return null;
   const markers = channel.read_markers || {};
   const read = others.filter((id) => Number(markers[id] || 0) >= Number(message.id));
@@ -942,7 +993,7 @@ function readSummary(message) {
 // Receipts (): who the app gave this message's text to, and whose read marker has passed it. Neither
 // proves that someone read it with attention, so the dialog says what each word means.
 async function showReceipts(message) {
-  const { dialog, body } = dialogBase('Receipts', 'Received: the app gave them this message. Read: a person had the conversation open on screen past this message, or an agent marked it read. Neither proves attention.');
+  const { dialog, body } = dialogBase('Receipts', 'Received: the app gave them this message. Read: a person had the conversation open on screen past this message, or an agent\'s own tool fetched the conversation past it. Neither proves attention.');
   const status = node('p', 'field-hint', 'Loading receipts…');
   body.append(status);
   dialog.showModal();
@@ -1028,7 +1079,55 @@ function composerLocked(channelId = app.channelId) {
   const input = $('message-input');
   return app.uploadingImage || app.uploadingVoice || input.readOnly || app.outbox.some(message => message.channel_id === channelId && !message.durable && message.body === input.value && (message.inFlight || message.status === 'failed'));
 }
+let composerHeight = null;   // px the reader chose; null = the automatic rows below
+function composerHeightLimits() {
+  const input = $('message-input');
+  const min = parseFloat(getComputedStyle(input).minHeight);
+  const share = window.matchMedia(PHONE_WIDTH_QUERY).matches ? COMPOSER_MAX_PHONE_SHARE : COMPOSER_MAX_WINDOW_SHARE;
+  // Everything in the message area except the box itself (zero while the area is hidden; resizeComposer re-checks).
+  const rest = $('composer-area').getBoundingClientRect().height - input.getBoundingClientRect().height;
+  return { min, max: Math.max(min, Math.floor(window.innerHeight * share - Math.max(0, rest))) };
+}
+function setComposerHeight(next, remember) {
+  const input = $('message-input'); const grip = $('composer-resize'); const list = $('message-list');
+  const atNewest = Boolean(list) && list.scrollHeight - list.scrollTop - list.clientHeight < 4;   // no list before a conversation is drawn
+  const { min, max } = composerHeightLimits();
+  composerHeight = next === null ? null : Math.round(Math.min(max, Math.max(min, next)));
+  input.closest('.composer-box').classList.toggle('composer-sized', composerHeight !== null);
+  input.style.height = composerHeight === null ? '' : `${composerHeight}px`;
+  grip.setAttribute('aria-valuemin', String(Math.round(min)));
+  grip.setAttribute('aria-valuemax', String(max));
+  grip.setAttribute('aria-valuenow', String(Math.round(input.getBoundingClientRect().height)));
+  if (atNewest) list.scrollTop = list.scrollHeight;   // a growing box must not hide the newest message
+  if (!remember) return;
+  try { if (composerHeight === null) localStorage.removeItem(COMPOSER_HEIGHT_KEY); else localStorage.setItem(COMPOSER_HEIGHT_KEY, String(composerHeight)); }
+  catch { notify('Message box size changed for this tab. Browser storage is unavailable, so it will reset on reload.'); }
+}
+function startComposerDrag(event) {
+  if (event.button !== 0) return;
+  event.preventDefault();
+  const grip = $('composer-resize'); const box = grip.closest('.composer-box');
+  const startY = event.clientY; const startHeight = $('message-input').getBoundingClientRect().height;
+  grip.setPointerCapture(event.pointerId); box.classList.add('composer-resizing');
+  const move = (moved) => setComposerHeight(startHeight + startY - moved.clientY, false);
+  const end = () => {
+    grip.removeEventListener('pointermove', move); box.classList.remove('composer-resizing');
+    if (composerHeight !== null) setComposerHeight(composerHeight, true);
+  };
+  grip.addEventListener('pointermove', move);
+  grip.addEventListener('pointerup', end, { once: true });
+  grip.addEventListener('pointercancel', end, { once: true });
+}
+function composerGripKey(event) {
+  const current = $('message-input').getBoundingClientRect().height;
+  if (event.key === 'ArrowUp') setComposerHeight(current + COMPOSER_RESIZE_STEP, true);
+  else if (event.key === 'ArrowDown') setComposerHeight(current - COMPOSER_RESIZE_STEP, true);
+  else if (event.key === 'Home') setComposerHeight(null, true);
+  else return;
+  event.preventDefault();
+}
 function resizeComposer() {
+  if (composerHeight !== null) setComposerHeight(composerHeight, false);   // a chosen size still fits once the area shows
   // CSS sets the maximum height; rows keep the control usable without inline styles.
   const lineCount = $('message-input').value.split('\n').length;
   $('message-input').rows = Math.min(6, Math.max(2, lineCount));
@@ -1038,6 +1137,8 @@ function resizeComposer() {
   $('emoji-picker').disabled = locked;
   $('attach-image').disabled = locked;
   $('record-voice').disabled = Boolean(app.voice && !app.voice.recorder) || (locked && !app.voice);
+  // Dictation exists only when the server has a local speech program; a recording in progress keeps its button.
+  $('record-voice').hidden = !app.state?.capabilities?.dictation && !app.voice;
 }
 function newClientId() {
   if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
@@ -1048,8 +1149,11 @@ function newClientId() {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 function sendMessage() {
-  const body = $('message-input').value;
-  if (!body.trim() || composerLocked()) return;
+  closeMentionPicker();
+  const typed = $('message-input').value;
+  if (!typed.trim() || composerLocked()) return;
+  const body = withMentionMarkers(typed, app.channelId);
+  if (body !== typed) { $('message-input').value = body; app.drafts.set(app.channelId, body); }
   if (body.length > LIMITS.body) { notify(`Messages can contain up to ${LIMITS.body.toLocaleString()} characters.`, true); return; }
   // If enqueue's acknowledgement was lost, reuse its identifier rather than
   // creating a second message from the same text.
@@ -1512,7 +1616,14 @@ function dialogBase(title, description) {
   dialog.append(body);
   $('dialog-root').append(dialog);
   const previouslyFocused = document.activeElement;
-  dialog.addEventListener('close', () => { dialog.remove(); if (previouslyFocused instanceof HTMLElement && previouslyFocused.isConnected) previouslyFocused.focus(); });
+  dialog.addEventListener('close', () => {
+    const focused = document.activeElement;
+    // A queued close event can arrive after the user resumes typing elsewhere.
+    // Restore ordinary dialog focus only if no other control already has it.
+    const restoreFocus = !focused || focused === document.body || dialog.contains(focused);
+    dialog.remove();
+    if (restoreFocus && previouslyFocused instanceof HTMLElement && previouslyFocused.isConnected) previouslyFocused.focus();
+  });
   return { dialog, body };
 }
 function formDialog(title, description, setup, submitLabel, submitAction) {
@@ -1573,8 +1684,21 @@ function showRenameParticipant(participant) {
     notify(`Renamed to ${renamed.name}.`);
   });
 }
+function showParticipantStatus(participant, restore) {
+  // An in-page form, not a browser pop-up: the reason is recorded in the history, and seen_name refuses a stale view.
+  formDialog(`${restore ? 'Restore' : 'Remove'} ${participant.name}`, restore
+    ? 'They can sign in and act again with their existing access. Everything they wrote is still there.'
+    : 'They can no longer sign in or act, from any browser, tool or provider module. Every message and record they made stays, and you can restore them later.',
+  (form) => ({
+    reason: field(form, 'Reason', 'reason', 'text', { required: true, maxLength: LIMITS.name }),
+  }), restore ? 'Restore' : 'Remove', async (controls) => {
+    await api(`/api/participants/${restore ? 'restore' : 'remove'}`, { id: participant.id, seen_name: participant.name, reason: controls.reason.value });
+    await refreshState();
+    notify(restore ? `${participant.name} was restored.` : `${participant.name} was removed. Their messages stay.`);
+  });
+}
 function showNewChannel() {
-  const agents = app.state.participants.filter((participant) => participant.kind === 'agent');
+  const agents = app.state.participants.filter((participant) => participant.kind === 'agent' && participant.active !== false);
   if (!agents.length) { showNewParticipant(); return; }
   formDialog('New conversation', 'Choose one agent for a private conversation, or several for a group. You are included automatically.', (form) => {
     const title = field(form, 'Conversation name', 'title', 'text', { required: true, maxLength: LIMITS.title, placeholder: 'For example, Planning the next step' });
@@ -1640,7 +1764,8 @@ function showTaskDetails(task) {
 function ownerOptions(owner, channelId, preferred) {
   const members = app.state.channels.find((item) => item.id === channelId)?.members || [];
   owner.replaceChildren();
-  for (const participant of app.state.participants.filter((item) => members.includes(item.id))) {
+  // A removed member is offered only as the task's current owner, so editing a task never changes its owner silently.
+  for (const participant of app.state.participants.filter((item) => members.includes(item.id) && (item.active !== false || item.id === preferred))) {
     const option = node('option', '', participant.name);
     option.value = participant.id;
     owner.append(option);
@@ -1671,7 +1796,7 @@ function showNewTask() {
       const selected = owner.value;
       const members = app.state.channels.find((item) => item.id === channel.value)?.members || [];
       owner.replaceChildren();
-      for (const participant of app.state.participants.filter((item) => members.includes(item.id))) {
+      for (const participant of app.state.participants.filter((item) => members.includes(item.id) && item.active !== false)) {
         const option = node('option', '', participant.name);
         option.value = participant.id;
         owner.append(option);
@@ -2278,6 +2403,85 @@ function changeConversationTextSize(direction) {
   try { localStorage.setItem(CONVERSATION_TEXT_SIZE_KEY, String(next)); }
   catch { notify('Text size changed for this tab. Browser storage is unavailable, so it will reset on reload.'); }
 }
+// @mentions. A mention is the plain-text marker @{participant-id}: the id, so a rename never
+// misdirects it. The server lists a message's mentions (current members of that conversation only); the conversation
+// draws those markers as chips. In the composer, "@" offers the conversation's other members, and sending turns a
+// chosen or typed @Name of such a member into its marker. A mention only shows; it wakes nobody and calls no model.
+const MENTION_MARKER = /^@\{([a-zA-Z0-9][a-zA-Z0-9_-]{0,63})\}/;
+const MENTION_MARKERS = /@\{([a-zA-Z0-9][a-zA-Z0-9_-]{0,63})\}/g;
+const MENTION_QUERY = /(?:^|[^\p{L}\p{N}_@.])@([\p{L}\p{N}_-][\p{L}\p{N}_ -]{0,31})?$/u;
+const MENTION_PICKER_LIMIT = 8;
+let renderMentions = new Set();
+function channelMembers(channelId) {
+  return app.state?.channels.find((item) => item.id === channelId)?.members || [];
+}
+function mentionCandidates(channelId) {
+  return channelMembers(channelId).filter((id) => id !== app.state.me.id && person(id).active !== false).map((id) => person(id))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+// The server's rule, for a message the server has not listed yet (still sending).
+function mentionsIn(body, channelId) {
+  const members = new Set(channelMembers(channelId));
+  return [...new Set([...String(body).matchAll(MENTION_MARKERS)].map((match) => match[1]).filter((id) => members.has(id)))];
+}
+function withMentionMarkers(body, channelId) {
+  let result = body;
+  // longest names first, so "@Codex Reviewer" is not cut short by a member named "Codex"
+  for (const member of mentionCandidates(channelId).sort((a, b) => b.name.length - a.name.length)) {
+    const name = member.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    result = result.replace(new RegExp(`(^|[^\\p{L}\\p{N}_@.])@${name}(?![\\p{L}\\p{N}_])`, 'giu'), (_, before) => `${before}@{${member.id}}`);
+  }
+  return result;
+}
+function closeMentionPicker() {
+  app.mentionPicker = null;
+  const picker = $('mention-picker'); picker.hidden = true; picker.replaceChildren();
+  $('message-input').setAttribute('aria-expanded', 'false'); $('message-input').removeAttribute('aria-activedescendant');
+}
+function updateMentionPicker() {
+  const input = $('message-input');
+  if (!app.channelId || input.readOnly || input.selectionStart !== input.selectionEnd) { closeMentionPicker(); return; }
+  const match = input.value.slice(0, input.selectionStart).match(MENTION_QUERY);
+  const typed = (match?.[1] || '').toLowerCase();
+  const choices = match ? mentionCandidates(app.channelId).filter((member) => member.name.toLowerCase().startsWith(typed)).slice(0, MENTION_PICKER_LIMIT) : [];
+  if (!choices.length) { closeMentionPicker(); return; }
+  app.mentionPicker = { start: input.selectionStart - typed.length - 1, end: input.selectionStart, choices, index: 0 };
+  renderMentionPicker();
+}
+function renderMentionPicker() {
+  const state = app.mentionPicker; const picker = $('mention-picker'); const input = $('message-input');
+  picker.replaceChildren(...state.choices.map((member, index) => {
+    const option = node('button', 'mention-option', member.name); option.type = 'button'; option.id = `mention-option-${index}`;
+    option.setAttribute('role', 'option'); option.setAttribute('aria-selected', String(index === state.index));
+    // keep the composer focused: the choice is made on mousedown, before a blur
+    option.addEventListener('mousedown', (event) => { event.preventDefault(); chooseMention(index); });
+    return option;
+  }));
+  picker.hidden = false;
+  input.setAttribute('aria-expanded', 'true'); input.setAttribute('aria-activedescendant', `mention-option-${state.index}`);
+}
+function chooseMention(index) {
+  const state = app.mentionPicker; const input = $('message-input');
+  if (!state || composerLocked()) { closeMentionPicker(); return; }
+  const text = '@' + state.choices[index].name + ' ';
+  if (input.value.length - (state.end - state.start) + text.length > LIMITS.body) { notify('The message is too long to add this mention.', true); return; }
+  input.setRangeText(text, state.start, state.end, 'end');
+  closeMentionPicker();
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+  closeMentionPicker();   // the input event reopens it for the text before the cursor; the choice is made
+  input.focus();
+}
+function mentionPickerKey(event) {
+  const state = app.mentionPicker;
+  if (!state || event.metaKey || event.ctrlKey || event.altKey) return false;
+  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+    state.index = (state.index + (event.key === 'ArrowDown' ? 1 : state.choices.length - 1)) % state.choices.length;
+    renderMentionPicker(); return true;
+  }
+  if (event.key === 'Enter' || event.key === 'Tab') { chooseMention(state.index); return true; }
+  if (event.key === 'Escape') { closeMentionPicker(); return true; }
+  return false;
+}
 function showEmojiPicker() {
   if (composerLocked()) return;
   const input = $('message-input');
@@ -2804,18 +3008,22 @@ async function attachImage(file) {
   } catch (error) { notify(errorText(error), true); }
   finally { app.uploadingImage = false; $('image-file').value = ''; resizeComposer(); }
 }
-// Voice messages (): recorded in this browser, stored like images and played only from this app. Nothing is
-// transcribed: that needs a separately approved local speech model.
+// Dictation: the microphone records a memo in this browser, the server's local speech program turns it into text, and
+// the text joins the draft for the human to check and send. The sound is never stored or posted; voice messages sent
+// earlier still play in place.
 const VOICE_TYPES = ['audio/webm', 'audio/ogg', 'audio/mp4'];
+const DICTATION_SAMPLE_RATE = 16000;   // the only rate the server accepts: its speech program's input rate
 function renderVoiceButton() {
   const control = $('record-voice');
   const recording = Boolean(app.voice?.recorder);
   control.classList.toggle('recording', recording);
-  control.setAttribute('aria-label', recording ? 'Stop recording' : 'Record voice message');
-  control.title = app.voice && !recording ? 'Waiting for microphone permission' : recording ? 'Stop and attach the recording' : 'Record a voice message';
+  control.setAttribute('aria-label', recording ? 'Stop recording' : app.uploadingVoice ? 'Turning speech into text' : 'Dictate a message');
+  control.title = app.voice && !recording ? 'Waiting for microphone permission' : recording ? 'Stop and turn the speech into text'
+    : app.uploadingVoice ? 'Turning speech into text' : 'Dictate: speak, then check the text before sending';
   resizeComposer();
 }
 function releaseVoiceStream(session) {
+  clearTimeout(session.limit);
   if (session.stream && !session.released) {
     session.released = true;
     for (const track of session.stream.getTracks()) track.stop();
@@ -2846,17 +3054,18 @@ async function toggleVoiceRecording() {
     }
     return;
   }
-  if (!app.authenticated || composerLocked()) return;
+  const limit = app.state?.capabilities?.dictation?.max_seconds;
+  if (!app.authenticated || composerLocked() || !limit) return;
   if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') { notify('This browser cannot record audio.', true); return; }
   // Reserve ownership before permission can resolve. The asynchronous result cannot acquire a new account's session.
-  const session = { channel: app.channelId, generation: app.personalGeneration, stream: null, recorder: null, cancelled: false, stopping: false, released: false };
+  const session = { channel: app.channelId, generation: app.personalGeneration, stream: null, recorder: null, cancelled: false, stopping: false, released: false, limit: null };
   app.voice = session; renderVoiceButton();
   try {
     session.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     if (app.voice !== session || session.cancelled || !app.authenticated || session.generation !== app.personalGeneration) { clearVoiceSession(session); return; }
     const type = VOICE_TYPES.find((candidate) => MediaRecorder.isTypeSupported(candidate));
     const recorder = new MediaRecorder(session.stream, type ? { mimeType: type } : undefined);
-    const chunks = []; const started = performance.now();
+    const chunks = [];
     session.recorder = recorder;
     recorder.addEventListener('dataavailable', (event) => { if (event.data.size && !session.cancelled) chunks.push(event.data); });
     recorder.addEventListener('error', () => {
@@ -2866,29 +3075,48 @@ async function toggleVoiceRecording() {
     recorder.addEventListener('stop', () => {
       clearVoiceSession(session);
       if (session.cancelled || !app.authenticated || session.generation !== app.personalGeneration) return;
-      const seconds = Math.max(1, Math.round((performance.now() - started) / 1000));
-      attachVoice(new Blob(chunks, { type: recorder.mimeType || type || '' }), seconds, session.channel, session.generation);
+      dictate(new Blob(chunks, { type: recorder.mimeType || type || '' }), session.channel, session.generation);
     }, { once: true });
     recorder.start(); renderVoiceButton();
+    // The server refuses a longer memo, so the recording stops itself at the limit and is turned into text.
+    session.limit = setTimeout(() => { if (app.voice === session) toggleVoiceRecording(); }, limit * 1000);
   } catch (error) {
     session.cancelled = true;
     clearVoiceSession(session);
     if (session.generation === app.personalGeneration && app.authenticated) notify(`The microphone is not available. ${errorText(error)}`, true);
   }
 }
-async function attachVoice(blob, seconds, channel, generation) {
+// The browser decodes its own recording (WebM, Ogg or MP4) and writes 16 kHz mono 16-bit WAV, so the server needs no
+// audio decoder. An offline context renders without touching any sound device.
+async function speechWav(blob) {
+  const decoded = await new OfflineAudioContext(1, 1, DICTATION_SAMPLE_RATE).decodeAudioData(await blob.arrayBuffer());
+  const offline = new OfflineAudioContext(1, Math.max(1, Math.ceil(decoded.duration * DICTATION_SAMPLE_RATE)), DICTATION_SAMPLE_RATE);
+  const source = offline.createBufferSource();
+  source.buffer = decoded; source.connect(offline.destination); source.start();
+  const samples = (await offline.startRendering()).getChannelData(0);
+  const view = new DataView(new ArrayBuffer(44 + samples.length * 2));
+  const word = (offset, value) => { for (let index = 0; index < 4; index += 1) view.setUint8(offset + index, value.charCodeAt(index)); };
+  word(0, 'RIFF'); view.setUint32(4, 36 + samples.length * 2, true); word(8, 'WAVE'); word(12, 'fmt ');
+  view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true);
+  view.setUint32(24, DICTATION_SAMPLE_RATE, true); view.setUint32(28, DICTATION_SAMPLE_RATE * 2, true);
+  view.setUint16(32, 2, true); view.setUint16(34, 16, true); word(36, 'data'); view.setUint32(40, samples.length * 2, true);
+  samples.forEach((sample, index) => view.setInt16(44 + index * 2, Math.round(Math.max(-1, Math.min(1, sample)) * 0x7fff), true));
+  return new Blob([view], { type: 'audio/wav' });
+}
+async function dictate(blob, channel, generation) {
   if (!app.authenticated || generation !== app.personalGeneration) return;
-  if (!blob.size || blob.size > ATTACHMENT_MAX_BYTES) { notify('The recording is empty or larger than 8 MB.', true); return; }
-  app.uploadingVoice = true; resizeComposer();
+  if (!blob.size) { notify('The recording is empty.', true); return; }
+  app.uploadingVoice = true; renderVoiceButton();
   try {
-    const encoded = await fileData(blob, 'Could not read the recording.');
+    const wav = await speechWav(blob);
     if (!app.authenticated || generation !== app.personalGeneration) return;
-    const label = `Voice message ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
-    const result = await api('/api/audio', { channel_id: channel, client_id: newClientId(), name: label, data: encoded });
+    const encoded = await fileData(wav, 'Could not read the recording.');
     if (!app.authenticated || generation !== app.personalGeneration) return;
-    await addToDraft(channel, `[${label}](${result.url})`, 'Recording');
+    const result = await api('/api/dictation', { data: encoded });
+    if (!app.authenticated || generation !== app.personalGeneration) return;
+    await addToDraft(channel, result.text, 'Dictated text');
   } catch (error) { if (generation === app.personalGeneration) notify(errorText(error), true); }
-  finally { if (generation === app.personalGeneration) { app.uploadingVoice = false; resizeComposer(); } }
+  finally { if (generation === app.personalGeneration) { app.uploadingVoice = false; renderVoiceButton(); } }
 }
 $('attach-image').addEventListener('click', () => $('image-file').click());
 $('record-voice').addEventListener('click', toggleVoiceRecording);
@@ -2913,17 +3141,28 @@ $('larger-text').addEventListener('click', () => changeConversationTextSize(1));
 $('emoji-picker').addEventListener('click', showEmojiPicker);
 for (const control of document.querySelectorAll('.format-tool')) control.addEventListener('click', () => applyFormat(control.dataset.format));
 $('clear-draft').addEventListener('click', showClearDraft);
+$('composer-resize').addEventListener('pointerdown', startComposerDrag);
+$('composer-resize').addEventListener('keydown', composerGripKey);
+$('composer-resize').addEventListener('dblclick', () => setComposerHeight(null, true));
+window.addEventListener('resize', () => { if (composerHeight !== null) setComposerHeight(composerHeight, false); });
 try {
   const savedSize = Number(localStorage.getItem(CONVERSATION_TEXT_SIZE_KEY));
   if (CONVERSATION_TEXT_SIZES.includes(savedSize)) conversationTextSize = savedSize;
 } catch { conversationTextSize = DEFAULT_CONVERSATION_TEXT_SIZE; }
 applyConversationTextSize();
+try {
+  const savedHeight = Number(localStorage.getItem(COMPOSER_HEIGHT_KEY));
+  setComposerHeight(savedHeight > 0 ? savedHeight : null, false);
+} catch { setComposerHeight(null, false); }
 $('message-input').maxLength = LIMITS.body;
 $('search-input').maxLength = LIMITS.title;
-$('message-input').addEventListener('input', () => { if (app.channelId) { app.drafts.set(app.channelId, $('message-input').value); app.unsavedDrafts.add(app.channelId); persistDraft(app.channelId); } resizeComposer(); });
+$('message-input').addEventListener('input', () => { if (app.channelId) { app.drafts.set(app.channelId, $('message-input').value); app.unsavedDrafts.add(app.channelId); persistDraft(app.channelId); } resizeComposer(); updateMentionPicker(); });
+$('message-input').addEventListener('click', updateMentionPicker);
+$('message-input').addEventListener('blur', closeMentionPicker);
 window.addEventListener('beforeunload', (event) => { if (app.authenticated && (app.voice || app.uploadingVoice || app.pendingPersonal || app.personalErrors.size || app.unsavedDrafts.size || app.outbox.some((item) => !item.durable))) { event.preventDefault(); event.returnValue = ''; } });
 window.addEventListener('pagehide', cancelVoiceRecording);
 $('message-input').addEventListener('keydown', (event) => {
+  if (mentionPickerKey(event)) { event.preventDefault(); return; }
   if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) { event.preventDefault(); sendMessage(); return; }
   const format = FORMAT_SHORTCUTS[event.key.toLowerCase()];
   if (format && (event.metaKey || event.ctrlKey) && !event.altKey && !event.shiftKey) { event.preventDefault(); applyFormat(format); }

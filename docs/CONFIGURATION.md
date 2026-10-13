@@ -37,11 +37,12 @@ Atlas, Scribe, and Prism are fictional museum agents in this example. A particip
 | `source_roots` | Explicit approved roots for source selection and optional work policy |
 | `source_files` | Individual indexed files; an empty list indexes nothing |
 | `knowledge_check` | Optional per-conversation daily-check time and time zone |
+| `dictation` | Optional local speech-to-text program for the microphone button |
 | `work_permissions` | Optional explicit policy for task-linked file claims |
 
 Participant IDs begin with a letter or digit and use letters, digits, underscores, or hyphens, up to 64 characters. IDs must be unique. At least one human is required by the store; the launcher requires exactly one human owner. Configure each agent client with its own ID.
 
-Names are display labels. A human can rename participants in the application without changing IDs or credentials. Do not change an established ID to perform a display-name edit. The application can add an agent account through the human interface; a provider module still needs its own configuration.
+Names are display labels. A human can rename participants in the application without changing IDs or credentials. Do not change an established ID to perform a display-name edit. The application can add an agent account through the human interface; a provider module still needs its own configuration. Use **Remove** and **Restore** for access changes. Removal keeps the identity, old records and change history; restart does not silently restore it. Removal deletes browser sessions. Restore keeps credentials and allowed access, but the browser needs a fresh login. Both the provider caller and its registered agent must be active. These controls cannot recall context already copied or sent outside the app.
 
 An optional `logo` must name a bundled, registered logo. Use an appropriate provider identifier rather than treating a logo as evidence of a live connection or endorsement.
 
@@ -133,6 +134,38 @@ The setting requires exactly `time` and `timezone`. Time uses a 24-hour `HH:MM` 
 
 Checks are recorded per conversation and check day. The day starts at the configured time. The setting does not start an agent or create an automatic task. It is separate from the browser's detected local time zone for displaying conversation timestamps.
 
+## Optional dictation
+
+```json
+{
+  "dictation": {
+    "command": "/usr/local/bin/whisper-cli",
+    "model": "/home/curator/models/ggml-small.en.bin",
+    "language": "en",
+    "threads": 4,
+    "timeout_seconds": 60,
+    "max_seconds": 120
+  }
+}
+```
+
+Dictation turns a short spoken memo into text in the human's message box; the human checks it and sends it as an ordinary message. It needs [whisper.cpp](https://github.com/ggml-org/whisper.cpp)'s `whisper-cli` program and one of its speech models, installed separately. The setting requires all six fields:
+
+| Field | Meaning |
+| --- | --- |
+| `command` | Absolute path to the executable `whisper-cli` |
+| `model` | Absolute path to a whisper.cpp model file; an `.en` model understands English only |
+| `language` | Two- or three-letter language code, or `auto` |
+| `threads` | Processor threads for one transcription, 1–64 |
+| `timeout_seconds` | Longest wait for one transcription, 1–600 |
+| `max_seconds` | Longest memo, 1–240; recording stops by itself at this length |
+
+The paths above are fictional examples; use your chosen installed executable and model. The app validates their presence and does not install them. An `.en` model is English only. Use a multilingual model and a suitable `language` value for other languages; accuracy still needs your own check.
+
+The server runs the program directly, without a shell and with an empty environment, one transcription at a time. It gives the program the workspace title, project label and active participants' names as spelling hints. The app removes its temporary recording after the attempt and does not store dictation audio in conversation records. A silent recording is refused before the program runs, because a speech model may invent a word for silence. Omit the field or use `null` to leave dictation off; the microphone button then does not appear.
+
+The executable is trusted software, not sandboxed software. An empty environment does not stop it from reading files, using the network or writing its own records. Choose the executable and model deliberately. Physical microphone and real-voice accuracy have not been verified for this preparation.
+
 ## Optional file work policy
 
 Omit `work_permissions` until the human has approved the roots, audiences, and paths. Merely adding a source root or source file does not enable ownership claims.
@@ -166,6 +199,10 @@ A claim coordinates participants; it does not prevent direct filesystem writes. 
 
 ## Providers and backup schedule
 
-Provider setup is in a separate private file derived from `providers.example.json`. Human launching requires an additional explicit grant file. See [Integrations](INTEGRATIONS.md); the ordinary launcher does not add provider flags itself.
+Provider setup is in a separate private file derived from `providers.example.json`. Its sample modules are disabled and unresolved. Six remote adapters (OpenAI, Anthropic, Gemini, Grok/xAI, OpenRouter, OpenCode Zen), local Ollama, and manual handoff are implemented. Choose the provider, compatible model, active registered agent and permitted conversation deliberately.
+
+Save the provider file beside `config.json` as `providers.local.json`. Human launching also needs `adapter-human-policy.local.json`. The ordinary launcher passes these private files to the server when present; without a provider file, providers stay off. A grant file without its provider file is refused. Neither file belongs in the public package.
+
+Remote keys are environment values referenced by `credential_env`, never values in the configuration. Remote activation also requires dated pricing evidence and explicit job/budget limits. The app does not contact a provider to discover missing settings, does not install software, and does not launch models because messages or mentions arrive. See [Integrations](INTEGRATIONS.md) for exact endpoints, limits and the distinction between supported code and measured provider calls.
 
 The database backup interval is maintained through the human **Backups** view, not a `config.json` field. It defaults to three days and accepts 1–365 whole days. The server's normal entry point runs the schedule while open. Verification and restoration are described in the [User guide](USER_GUIDE.md#11-back-up-and-restore).

@@ -85,7 +85,9 @@ class ParticipantRenameBrowserTests(unittest.TestCase):
             people = page.locator("#participant-list .participant")
             people.first.wait_for(state="visible")
             labels = [control.get_attribute("aria-label") for control in people.locator("button").all()]
-            check("a_human_sees_rename_for_every_participant", labels == ["Rename Synthetic human", "Rename Agent A"])
+            # Remove sits beside Rename for everyone but the viewer
+            check("a_human_sees_rename_for_every_participant",
+                  labels == ["Rename Synthetic human", "Rename Agent A", "Remove Agent A"])
             people.nth(1).get_by_role("button", name="Rename Agent A").click()
             dialog = page.locator("dialog[open]")
             check("the_dialog_starts_with_the_current_name", dialog.get_by_label("New display name").input_value() == "Agent A")

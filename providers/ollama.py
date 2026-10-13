@@ -25,6 +25,9 @@ class Ollama:
             "model": module.model,
             "messages": text_messages(context, prompt),
             "stream": False,
+            # A draft needs its answer, not hidden reasoning: a thinking model (gemma4's default) otherwise spends the
+            # whole output budget thinking and returns an empty draft (measured 12/10/2026).
+            "think": False,
             "options": {"num_predict": module.limits.max_output_tokens},
         }
 

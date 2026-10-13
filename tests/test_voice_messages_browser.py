@@ -1,13 +1,17 @@
-"""Offline Chromium check of voice messages (). The page's real MediaRecorder records a real clip: the
-composer's microphone button starts and stops it, the recording is uploaded once and a "Voice message m:ss" link enters
-the draft; in the conversation such a link plays in place, and any other link stays a link. All requests are
-intercepted synthetic fixtures; no server starts; nothing leaves the page."""
+"""Offline Chromium check of dictation and of voice messages sent earlier. The page's real MediaRecorder records a
+real clip: the microphone button starts and stops it, the page converts it to 16 kHz mono 16-bit WAV, sends it once
+for dictation, and the returned text enters the draft for the human to check; no sound is attached. Without a
+configured speech program there is no microphone button. In the conversation an earlier voice message still plays in
+place, and any other link stays a link. All requests are intercepted synthetic fixtures; no server starts; nothing
+leaves the page."""
 from __future__ import annotations
 
 import base64
+import io
 import json
-import re
 import unittest
+import wave
+from array import array
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlsplit
@@ -29,11 +33,13 @@ TONE_MICROPHONE = """navigator.mediaDevices.getUserMedia = async () => {
 VOICE_ID = "a" * 32
 VOICE_URL = "/api/audio/" + VOICE_ID
 WEBM_SIGNATURE = b"\x1a\x45\xdf\xa3"
+DICTATED = "Atlas, please draft the opening notes tonight."
 
 
 class VoiceMessagesBrowserTests(unittest.TestCase):
     def test_record_attach_and_play_a_voice_message(self) -> None:
-        report: dict[str, Any] = {"checks": {}, "external_requests": [], "unexpected": [], "uploads": []}
+        report: dict[str, Any] = {"checks": {}, "external_requests": [], "unexpected": [], "dictations": []}
+        offer: dict[str, Any] = {"dictation": {"max_seconds": 120}}
         errors: list[str] = []
         drafts: list[str] = []
         me = {"id": "curator", "name": "Curator", "kind": "human"}
@@ -63,7 +69,7 @@ class VoiceMessagesBrowserTests(unittest.TestCase):
                 return
             body = request.request.post_data_json or {}
             after = int(parse_qs(url.query).get("after", ["0"])[0])
-            state = {"workspace": {"title": "Common Ground", "project_label": "Aurora Museum"}, "me": me,
+            state = {"capabilities": dict(offer), "workspace": {"title": "Common Ground", "project_label": "Aurora Museum"}, "me": me,
                      "participants": [me, {"id": "atlas", "name": "Atlas", "kind": "agent"}],
                      "channels": [{"id": "workspace", "title": "Workspace", "kind": "shared",
                                    "members": ["atlas", "curator"], "unread": 0, "read_markers": {}}],
@@ -78,11 +84,14 @@ class VoiceMessagesBrowserTests(unittest.TestCase):
             if url.path == "/api/personal/draft":
                 drafts.append(body["body"])
                 answers[url.path] = {"channel_id": body["channel_id"], "body": body["body"], "version": body["version"] + 1}
-            if url.path == "/api/audio" and request.request.method == "POST":
-                raw = base64.b64decode(body["data"])
-                report["uploads"].append({"name": body["name"], "bytes": len(raw), "webm": raw[:4] == WEBM_SIGNATURE})
-                answers[url.path] = {"id": VOICE_ID, "url": VOICE_URL, "name": body["name"], "content_type": "audio/webm",
-                                     "bytes": len(raw)}
+            if url.path == "/api/dictation":
+                with wave.open(io.BytesIO(base64.b64decode(body["data"])), "rb") as clip:
+                    levels = array("h", clip.readframes(clip.getnframes()))   # little-endian, as on this Mac
+                    report["dictations"].append({"fields": sorted(body), "channels": clip.getnchannels(),
+                                                 "sample_bytes": clip.getsampwidth(), "rate": clip.getframerate(),
+                                                 "seconds": clip.getnframes() / clip.getframerate(),
+                                                 "peak": max(max(levels), -min(levels))})
+                answers[url.path] = {"text": DICTATED}
             if url.path not in answers:
                 report["unexpected"].append(url.path)
                 request.fulfill(status=400, json={"error": "Unexpected synthetic request"})
@@ -106,19 +115,23 @@ class VoiceMessagesBrowserTests(unittest.TestCase):
                     " && a.getAttribute('src') === '" + VOICE_URL + "' && a.getAttribute('aria-label') === 'Voice message 0:03'; }"))
                 check("other_links_stay_links", bubble.evaluate(
                     "e => e.querySelectorAll('audio').length === 1 && e.querySelector('a').href === 'https://example.org/guide'"))
-                # the composer: start, stop, upload once, link in the draft
+                # the composer: start, stop, one WAV sent for dictation, the text in the draft
                 record = page.locator("#record-voice")
+                check("dictation_button_is_offered", record.is_visible() and record.get_attribute("aria-label") == "Dictate a message")
                 record.click()
                 page.wait_for_function("() => document.querySelector('#record-voice').getAttribute('aria-label') === 'Stop recording'")
                 check("recording_button_shows_stop", "recording" in (record.get_attribute("class") or ""))
                 page.wait_for_timeout(1300)
                 record.click()
-                page.wait_for_function("() => document.querySelector('#message-input').value.includes('/api/audio/')")
+                page.wait_for_function("() => document.querySelector('#message-input').value !== ''")
                 draft = page.locator("#message-input").input_value()
-                check("draft_gets_one_voice_link", re.fullmatch(r"\[Voice message 0:0[1-3]\]\(" + re.escape(VOICE_URL) + r"\)", draft) is not None)
-                check("one_real_webm_recording_uploaded", len(report["uploads"]) == 1 and report["uploads"][0]["webm"]
-                      and report["uploads"][0]["bytes"] > 100)
-                check("button_returns_to_record", record.get_attribute("aria-label") == "Record voice message")
+                check("draft_gets_the_dictated_text", draft == DICTATED)
+                sent = report["dictations"]
+                check("one_16khz_mono_16bit_wav_sent", len(sent) == 1 and sent[0]["fields"] == ["data"]
+                      and (sent[0]["channels"], sent[0]["sample_bytes"], sent[0]["rate"]) == (1, 2, 16000))
+                check("the_wav_holds_the_recorded_tone", 0.8 < sent[0]["seconds"] < 3 and sent[0]["peak"] > 1000)
+                page.wait_for_function("() => document.querySelector('#record-voice').getAttribute('aria-label') === 'Dictate a message'")
+                check("button_returns_to_dictate", not record.is_disabled())
                 page.wait_for_function("() => document.querySelector('#personal-save-status')?.dataset.saved === 'true'")
                 check("the_draft_save_carries_the_link", drafts[-1] == draft)
                 page.screenshot(path=str(evidence_root() / "voice_messages_desktop.png"))
@@ -126,6 +139,10 @@ class VoiceMessagesBrowserTests(unittest.TestCase):
                 page.wait_for_timeout(300)
                 check("phone_has_no_horizontal_overflow", page.evaluate("() => document.documentElement.scrollWidth <= innerWidth"))
                 page.screenshot(path=str(evidence_root() / "voice_messages_phone.png"))
+                offer["dictation"] = None
+                page.reload()
+                page.locator('[data-message-id="1"]').wait_for()
+                check("no_button_without_a_speech_program", page.locator("#record-voice").is_hidden())
                 browser.close()
         finally:   # the report is evidence on a failure too
             report["page_errors"] = errors
