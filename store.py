@@ -20,6 +20,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import attachments
 import backups
+import branding
 import dictation
 
 DEFAULT_LISTEN_PORT = 0
@@ -315,9 +316,10 @@ def load_config(path):
     roots, files = source_config(config, path.parent)
     try:
         speech = dictation.settings(config.get("dictation"))
+        identity = branding.settings(config.get("branding"), max_name=MAX_TITLE)
     except ValueError as error:
         raise APIError(400, str(error)) from error
-    return {"dictation": speech, "title": title, "project_label": project, "state_dir": state_dir.resolve(), "participants": checked, "source_roots": roots, "source_files": files, "port": port, "browser_session_days": session_days, "knowledge_check": knowledge_check_config(config), "work_permissions": work_permission_config(config, roots)}
+    return {"dictation": speech, "branding": identity, "title": title, "project_label": project, "state_dir": state_dir.resolve(), "participants": checked, "source_roots": roots, "source_files": files, "port": port, "browser_session_days": session_days, "knowledge_check": knowledge_check_config(config), "work_permissions": work_permission_config(config, roots)}
 
 
 class Store:
@@ -731,7 +733,8 @@ class Store:
             channels.append(channel)
         logos = {person["id"]: person.get("logo") for person in self.config["participants"]}
         speech = {"max_seconds": self.dictation.config.max_seconds} if self.dictation and actor["kind"] == "human" else None
-        return {"capabilities": {"file_claims": True, "dictation": speech}, "workspace": {key: self.config[key] for key in ("title", "project_label")}, "me": actor,
+        return {"capabilities": {"file_claims": True, "dictation": speech}, "workspace": {**{key: self.config[key] for key in ("title", "project_label")},
+                **({"brand_name": self.config["branding"]["name"]} if self.config["branding"] else {})}, "me": actor,
             "participants": [{**dict(row), "active": bool(row["active"]), "logo": logos.get(row["id"])}
                              for row in db.execute("SELECT id,name,kind,active FROM participants ORDER BY name,id")],
             "channels": channels,
@@ -976,7 +979,7 @@ class Store:
                 COALESCE((SELECT k.message_id FROM read_markers k WHERE k.channel_id=m.channel_id AND k.participant_id=p.id),0)>=? passed
                 FROM members m JOIN participants p ON p.id=m.participant_id
                 LEFT JOIN message_retrievals r ON r.message_id=? AND r.participant_id=p.id
-                WHERE m.channel_id=? AND p.id<>? ORDER BY p.name,p.id""",
+                WHERE m.channel_id=? AND p.id<>? AND p.active=1 ORDER BY p.name,p.id""",
                 (ident, ident, row["channel_id"], row["author_id"])).fetchall()
         tracked = bool(row["tracked"])
         return {"message_id": ident, "received_known": tracked,

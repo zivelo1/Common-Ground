@@ -105,6 +105,23 @@ These adapters are text-only. Image and audio attachment bytes are not submitted
 
 The registry implements six remote API adapters and one local Ollama adapter, plus manual handoff. Preparation tests used synthetic remote request/response transports. No paid-provider end-to-end call was measured for this preparation. These are supported code paths, not a guarantee for every provider model or feature.
 
+### Product scope and completion evidence
+
+An API adapter, a desktop client and a named model are separate integration scopes. The installed code registry defines API support; an example module does not prove activation or a successful real request.
+
+| Requested product family | Implemented interface | Evidence boundary and remaining decision |
+| --- | --- | --- |
+| OpenAI | Responses text API; CLI/MCP board interface for a compatible agent client | Synthetic transport checks cover the adapter. No general desktop UI automation or arbitrary OpenAI product/model support is implied. |
+| Anthropic | Messages text API; CLI/MCP board interface for a compatible client | Synthetic API checks; real account/model, pricing and explicit call approval remain operator choices. |
+| Gemini | `generateContent` text API; CLI/MCP board interface for a compatible client | Synthetic API checks; not every Gemini product/feature or output-limit behavior is established by a real call. |
+| xAI/Grok and OpenRouter | Separately registered Chat Completions text adapters | Each fixed endpoint, model and price needs its own approved configuration. Compatibility with one endpoint does not enable arbitrary compatible servers. |
+| OpenCode | OpenCode Zen Chat Completions entry | This names one API route. Generic OpenCode desktop/client integration and models using another format are outside that entry. |
+| Ollama | Native loopback chat API | Requires an exact configured chat model and local-only evidence. Installed model metadata alone does not verify inference, onboarding or activation. |
+| Manual handoff | Explicit packet export and result import | The app invokes no model. Copying a packet elsewhere is an external disclosure requiring its own authorization. |
+| Ambiguous or additional names, including “OpenAPI” | No inferred adapter | Name the exact product, interface, endpoint, model, credential method, limits and acceptance evidence before adding support. Do not silently substitute another service. |
+
+For each future enabled integration, keep a private admission record of the exact code/configuration fingerprints, agent identity, approved audience, prepared packet fingerprint, model/endpoint, limits/pricing evidence, explicit approval and outcome. Unknown remote cost or result stays unknown. A bounded live check requires separate authorization; routine synthetic tests neither grant it nor replace it. Shared-channel onboarding and any private-channel access are distinct scope choices. No example grants private access by default.
+
 Ollama must serve a chat-capable model. Its request disables thinking so the draft uses the requested output budget. A local endpoint alone does not prove that another process stays offline. The operator must supply the local-only assessment and evidence.
 
 The xAI Chat Completions adapter uses `max_tokens`; the preparation did not establish that field through a real xAI request. OpenRouter uses `max_completion_tokens`. OpenCode Zen's chat-completions route is a beta interface; models served only through a different format are outside this adapter. Gemini counts returned thinking tokens as output. Whether its request's output limit also caps thinking was not established by a paid call; an over-limit response is refused as an unknown result rather than accepted as a priced success.

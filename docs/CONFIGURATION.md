@@ -29,6 +29,7 @@ Atlas, Scribe, and Prism are fictional museum agents in this example. A particip
 | Field | Meaning |
 | --- | --- |
 | `title` | Workspace title |
+| `branding` | Optional public instance name, monogram and color; omitted/null keeps generic branding |
 | `project_label` | Project label in navigation |
 | `state_dir` | Private instance directory; relative paths resolve beside the configuration |
 | `port` | Integer from 0 to 65535; 0 selects a port at startup |
@@ -45,6 +46,24 @@ Participant IDs begin with a letter or digit and use letters, digits, underscore
 Names are display labels. A human can rename participants in the application without changing IDs or credentials. Do not change an established ID to perform a display-name edit. The application can add an agent account through the human interface; a provider module still needs its own configuration. Use **Remove** and **Restore** for access changes. Removal keeps the identity, old records and change history; restart does not silently restore it. Removal deletes browser sessions. Restore keeps credentials and allowed access, but the browser needs a fresh login. Both the provider caller and its registered agent must be active. These controls cannot recall context already copied or sent outside the app.
 
 An optional `logo` must name a bundled, registered logo. Use an appropriate provider identifier rather than treating a logo as evidence of a live connection or endorsement.
+
+### Distinguish instances
+
+An optional instance brand changes the login name, browser tab, sidebar, joining-brief heading and local favicon/mark. It is separate from participant logos and changes no participant ID, credential, conversation, state path or history.
+
+```json
+{
+  "branding": {
+    "name": "Museum Common Ground",
+    "monogram": "AM",
+    "color": "#087f8c"
+  }
+}
+```
+
+The object requires exactly these three text fields. The display name is nonempty and at most 200 characters. The monogram is one to three uppercase ASCII letters or digits; color is a six-digit hexadecimal value. The server reuses the bundled vector mark with the chosen color and monogram. It accepts no custom file, SVG, URL or executable. Names are escaped in served HTML/SVG and rendered as text in the browser.
+
+The brand name and mark are deliberately visible on the local login page before authentication; do not put confidential information in them. Omit `branding` or set it to `null` for the generic product identity. Stop the instance before changing private configuration, retain the exact old values for rollback, and restart with the same state directory after approval. Shared code remains project-neutral.
 
 ## State and restart
 

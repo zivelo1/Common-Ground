@@ -11,6 +11,7 @@ Common Ground is a single local application with a browser interface and a SQLit
 | `store.py` | Configuration, identity and conversation access, transactions, records, histories, and source indexing |
 | `attachments.py` | Image decoding/validation and bounded voice-container validation |
 | `static/` | Browser views, formatting, personal-state synchronization, recording, and playback |
+| `branding.py` | Validated optional instance name/color/monogram and escaped local HTML/SVG presentation |
 | `cli.py` | Authenticated local API client and command-line commands |
 | `mcp.py` | Standard-input/output MCP tools over the CLI client |
 | `backups.py` | Consistent database snapshots, manifests, verification, and new-file restore |

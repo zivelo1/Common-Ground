@@ -41,6 +41,21 @@ class MessageReceiptTests(unittest.TestCase):
     def by_name(self, result):
         return {person["name"]: (person["received_at"] is not None, person["read"]) for person in result["recipients"]}
 
+    def test_removed_recipient_is_not_pending_and_restore_preserves_history(self):
+        sent = self.message("codex", text="original survives", client="inactive-receipt")
+        self.ok("GET", "/api/messages?channel_id=workspace", "atlas")
+        before = self.receipts(sent["id"])
+        self.ok("POST", "/api/participants/remove", "curator",
+                {"id": "atlas", "seen_name": "Atlas", "reason": "Disposable receipt test"})
+        self.assertEqual(set(self.by_name(self.receipts(sent["id"]))), {"Curator"})
+        self.assertIn("atlas", next(c for c in self.ok("GET", "/api/state", "codex")["channels"]
+                                   if c["id"] == "workspace")["members"])
+        self.ok("POST", "/api/participants/restore", "curator",
+                {"id": "atlas", "seen_name": "Atlas", "reason": "Disposable receipt test"})
+        self.assertEqual(self.receipts(sent["id"]), before)
+        self.assertEqual(self.ok("GET", "/api/messages?channel_id=workspace", "codex")["messages"][0]["body"],
+                         "original survives")
+
     def test_receipts_follow_retrieval_and_the_read_marker_without_returning_the_body(self):
         sent = self.message("codex", text="private wording 7f3a", client="m1")
         first = self.receipts(sent["id"])

@@ -69,9 +69,10 @@ class MessageReceiptsBrowserTests(unittest.TestCase):
             after = int(parse_qs(url.query).get("after", ["0"])[0])
             state = {"workspace": {"title": "Common Ground", "project_label": "Aurora Museum"}, "me": me,
                      "participants": [me, {"id": "codex", "name": "Codex", "kind": "agent"},
-                                      {"id": "atlas", "name": "Atlas", "kind": "agent"}],
+                                      {"id": "atlas", "name": "Atlas", "kind": "agent"},
+                                      {"id": "retired", "name": "Retired", "kind": "agent", "active": False}],
                      "channels": [{"id": "workspace", "title": "Workspace", "kind": "shared",
-                                   "members": ["codex", "atlas", "curator"], "unread": 0, "read_markers": dict(markers)}],
+                                   "members": ["codex", "atlas", "curator", "retired"], "unread": 0, "read_markers": dict(markers)}],
                      "decisions": [], "knowledge": [], "sources": [], "tasks": []}
             answers: dict[str, Any] = {"/api/state": state, "/api/bookmarks": {"messages": []},
                                        "/api/messages": {"messages": [m for m in messages if m["id"] > after],

@@ -125,6 +125,17 @@ class ParticipantRemovalBrowserTests(unittest.TestCase):
                 page.locator("#participant-list .participant").first.wait_for(state="visible")
                 check("a_human_sees_remove_beside_others_and_restore_for_the_removed",
                       buttons() == ["Rename Synthetic human", "Rename Agent A", "Remove Agent A", "Restore Agent B"])
+                remove = page.locator("#participant-list").get_by_role("button", name="Remove Agent A", exact=True)
+                check("remove_is_an_accessible_delete_icon_with_a_hover_label",
+                      remove.inner_text() == "" and remove.get_attribute("title") == "Remove Agent A"
+                      and remove.locator('svg[aria-hidden="true"][focusable="false"] path').count() == 1)
+                remove.focus()
+                remove.press("Enter")
+                confirmation = page.locator("dialog[open]")
+                check("opening_the_delete_icon_requires_confirmation_before_any_request",
+                      report["requests"] == [] and "Every message and record they made stays" in confirmation.inner_text())
+                confirmation.get_by_role("button", name="Cancel", exact=True).click()
+                check("cancelling_removal_changes_nothing", report["requests"] == [] and not confirmation.is_visible())
                 # Squeezed beside two buttons, a name broke into one letter per line; a readable name takes at most two
                 report["name_lines"] = page.locator("#participant-list .participant-name").evaluate_all(
                     "names => names.map(name => Math.round(name.getBoundingClientRect().height"

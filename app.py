@@ -16,6 +16,7 @@ from uuid import uuid4
 
 import attachments
 import backups
+import branding
 import store as store_module
 from adapter_controller import AdapterController
 from adapter_runner import MAX_RECENT_RUNS
@@ -45,6 +46,14 @@ class CollaborationServer(ThreadingHTTPServer):
         if type(port) is not int or not 0 <= port <= 65535:
             raise APIError(400, "Invalid port")
         config = load_config(config_path)
+        self.branded_assets = {}
+        if config["branding"] is not None:
+            try:
+                page = branding.index_page((ASSET_ROOT / "index.html").read_bytes(), config["branding"])
+                self.branded_assets = {"/": page, "/index.html": page,
+                    "/static/common-ground.svg": branding.logo((ASSET_ROOT / "common-ground.svg").read_bytes(), config["branding"])}
+            except ValueError as error:
+                raise APIError(500, str(error)) from error
         # Logo bytes verified against their provenance once, then served from memory only.
         self.logos = {f"/static/logos/{name}.svg": data for name, data in logo_registry().items()}
         config["state_dir"].mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -247,7 +256,8 @@ class Handler(BaseHTTPRequestHandler):
             path = ASSET_ROOT / filename
             if not path.is_file():
                 raise APIError(404, "UI asset not available")
-            self._send(200, path.read_bytes(), content_type=content_type)
+            data = self.server.branded_assets.get(route.path)
+            self._send(200, data if data is not None else path.read_bytes(), content_type=content_type)
             return
         actor = self._actor()
         store = self.server.store

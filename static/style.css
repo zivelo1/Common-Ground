@@ -131,6 +131,8 @@ button { color: inherit; }
 /* Rename above Remove: side by side they squeeze the name to one letter per line in the narrow sidebar. */
 .participant-actions { margin-left: auto; display: flex; flex-direction: column; gap: 4px; flex: none; }
 .participant-actions .participant-rename { margin-left: 0; }
+.participant-action svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.participant-remove:hover { color: var(--red); background: var(--red-soft); }
 .participant-restore { margin-left: auto; flex: none; }
 .participant.removed { opacity: .7; }
 .participant-group { margin: 10px 8px 2px; font-size: 10px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }

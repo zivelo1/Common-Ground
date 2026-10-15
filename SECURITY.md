@@ -16,6 +16,8 @@ Removing a participant refuses new application actions and keeps its authored re
 
 These boundaries do not prove that an outside tool honors a decision, Rule, or file claim. A read receipt also does not establish attention or understanding.
 
+Optional instance branding is intentionally visible on the local login page before authentication. Use a public display name, monogram and color. The app validates these fields, escapes text, and derives the mark from its bundled vector; it accepts no custom logo path, SVG body or remote asset URL. Branding changes presentation, not identities or conversation access.
+
 ## Local storage
 
 The state directory contains private databases, attachment bytes, credentials, logs, runtime metadata, browser-session records, provider run records, and backups. The application uses restrictive directory/file permissions, but does not encrypt the database at rest. A process with access under the same operating-system account can read or misuse this material.

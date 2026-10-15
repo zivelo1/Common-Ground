@@ -11,6 +11,8 @@ launchFragment.delete('token');
 const $ = (id) => document.getElementById(id);
 const LIMITS = Object.freeze({ title: 200, name: 200, body: 16000, source: 4000, evidence: 16000, participantId: 64, checkNote: 4000 });
 const CHECK_OUTCOMES = Object.freeze([{ value: 'updated', label: 'Knowledge updated' }, { value: 'nothing_changed', label: 'Nothing changed' }]);
+const PRODUCT_NAME = 'Common Ground';
+const ACTIVE_TASK_FILTER = 'active';
 const TASK_STATUS_LABELS = Object.freeze({ open: 'Open', working: 'In progress', blocked: 'Blocked', done: 'Done' });
 const POLL_INTERVAL_MS = 2000;
 const SEARCH_DELAY_MS = 300;
@@ -55,7 +57,7 @@ const app = {
   pendingPersonal: 0,
   personalErrors: new Map(),
   filters: { decisions: '', tasks: '' },
-  taskFilters: { status: '', owner: '', query: '' },
+  taskFilters: { status: ACTIVE_TASK_FILTER, owner: '', query: '' },
   signature: '',
   messageSignature: '',
   timer: null,
@@ -86,6 +88,23 @@ function button(text, className, action) {
   if (action) result.addEventListener('click', action);
   return result;
 }
+function participantAction(action, participant, handler) {
+  const label = `${action === 'rename' ? 'Rename' : 'Remove'} ${participant.name}`;
+  const control = button('', `icon-button participant-action participant-${action}`, handler);
+  control.setAttribute('aria-label', label);
+  control.title = label;
+  const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  icon.setAttribute('viewBox', '0 0 24 24');
+  icon.setAttribute('aria-hidden', 'true');
+  icon.setAttribute('focusable', 'false');
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute('d', action === 'rename'
+    ? 'M15 5l4 4M4 20l4-1 12-12a2.8 2.8 0 0 0-4-4L4 15z'
+    : 'M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7');
+  icon.append(path);
+  control.append(icon);
+  return control;
+}
 function plain(value) {
   if (value === null || value === undefined) return '';
   return typeof value === 'string' ? value : JSON.stringify(value, null, 2);
@@ -103,6 +122,7 @@ function notify(text, isError = false) {
 function person(id, name) {
   return app.state?.participants.find((item) => item.id === id) || { id, name: name || id || 'Unknown participant', kind: 'agent' };
 }
+function workspaceBrand(workspace = app.state?.workspace) { return workspace?.brand_name || PRODUCT_NAME; }
 function channelName(id) {
   return app.state?.channels.find((item) => item.id === id)?.title || 'Conversation';
 }
@@ -390,7 +410,8 @@ async function poll() {
 
 function renderSidebar() {
   $('workspace-title').textContent = app.state.workspace.title;
-  document.title = `Common Ground · ${app.state.workspace.project_label || app.state.workspace.title}`;
+  document.title = `${workspaceBrand()} · ${app.state.workspace.project_label || app.state.workspace.title}`;
+  $('brand-name').textContent = workspaceBrand();
   $('project-label').textContent = app.state.workspace.project_label || 'Local workspace';
   $('conversation-count').textContent = app.state.channels.length;
   $('decision-count').textContent = app.state.decisions.length;
@@ -441,12 +462,10 @@ function renderSidebar() {
     item.append(avatar(participant, 'small'), copy);
     if (app.state.me.kind === 'human') {
       const actions = node('div', 'participant-actions');
-      const rename = button('Rename', 'button subtle compact participant-rename', () => showRenameParticipant(participant));
-      rename.setAttribute('aria-label', `Rename ${participant.name}`);
+      const rename = participantAction('rename', participant, () => showRenameParticipant(participant));
       actions.append(rename);
       if (participant.id !== app.state.me.id) {
-        const remove = button('Remove', 'button subtle compact participant-remove', () => showParticipantStatus(participant, false));
-        remove.setAttribute('aria-label', `Remove ${participant.name}`);
+        const remove = participantAction('remove', participant, () => showParticipantStatus(participant, false));
         actions.append(remove);
       }
       item.append(actions);
@@ -977,7 +996,7 @@ function messageElement(message) {
 // fetched the conversation.
 function readSummary(message) {
   const channel = app.state.channels.find((item) => item.id === message.channel_id);
-  const others = (channel?.members || []).filter((id) => id !== message.author_id);
+  const others = (channel?.members || []).filter((id) => id !== message.author_id && person(id).active !== false);
   if (!others.length) return null;
   const markers = channel.read_markers || {};
   const read = others.filter((id) => Number(markers[id] || 0) >= Number(message.id));
@@ -1297,7 +1316,7 @@ function renderTaskFilters(board, toolbar, records) {
   const renderResults = () => {
     const query = app.taskFilters.query.trim().toLocaleLowerCase();
     const filtered = records.filter(task =>
-      (!app.taskFilters.status || task.status === app.taskFilters.status) &&
+      (!app.taskFilters.status || (app.taskFilters.status === ACTIVE_TASK_FILTER ? task.status !== 'done' : task.status === app.taskFilters.status)) &&
       (!app.taskFilters.owner || task.owner_id === app.taskFilters.owner) &&
       (!query || (task.title + '\n' + (task.body || '')).toLocaleLowerCase().includes(query)));
     count.textContent = filtered.length + ' of ' + records.length + ' tasks';
@@ -1327,7 +1346,7 @@ function renderTaskFilters(board, toolbar, records) {
     wrapper.append(select);
     controls.append(wrapper);
   };
-  addFilter('Filter by status', 'status', [{ value: '', label: 'All statuses' },
+  addFilter('Filter by status', 'status', [{ value: ACTIVE_TASK_FILTER, label: 'Active tasks' }, { value: '', label: 'All statuses' },
     ...Object.entries(taskStatusLabels()).map(([value, label]) => ({ value, label }))]);
   const owners = [...new Set(records.map(task => task.owner_id))].map(id => person(id)).sort((a, b) => a.name.localeCompare(b.name));
   addFilter('Filter by owner', 'owner', [{ value: '', label: 'All owners' }, ...owners.map(owner => ({ value: owner.id, label: owner.name }))]);
@@ -1341,7 +1360,7 @@ function renderTaskFilters(board, toolbar, records) {
   searchField.append(search);
   controls.append(searchField, button('Reset filters', 'text-button', () => {
     app.filters.tasks = '';
-    app.taskFilters = { status: '', owner: '', query: '' };
+    app.taskFilters = { status: ACTIVE_TASK_FILTER, owner: '', query: '' };
     renderView();
   }));
   board.append(controls, count, results);
@@ -2295,7 +2314,7 @@ async function showSourceHistory(source) {
 function joiningBriefText() {
   const brief = app.brief;
   if (!brief) throw new Error('Load the joining brief first.');
-  const lines = [`# Common Ground — ${brief.workspace.project_label || brief.workspace.title}`, 'Joining brief', `Built: ${brief.generated_at}`, `Scope: ${app.projectScope ? projectChannelLabel(app.state.channels.find((channel) => channel.id === app.projectScope)) : 'All conversations visible to this account'}`, '', 'Read project context and source dates first. Follow human-approved decisions. Treat proposals, conflicts, and stale claims as open questions. Add sources and outcomes when contributing.', '', 'Existing project documents and Git are the authoritative evidence. Documented knowledge is not human approval. This board does not start or train an AI model.', ''];
+  const lines = [`# ${workspaceBrand(brief.workspace)} — ${brief.workspace.project_label || brief.workspace.title}`, 'Joining brief', `Built: ${brief.generated_at}`, `Scope: ${app.projectScope ? projectChannelLabel(app.state.channels.find((channel) => channel.id === app.projectScope)) : 'All conversations visible to this account'}`, '', 'Read project context and source dates first. Follow human-approved decisions. Treat proposals, conflicts, and stale claims as open questions. Add sources and outcomes when contributing.', '', 'Existing project documents and Git are the authoritative evidence. Documented knowledge is not human approval. This board does not start or train an AI model.', ''];
   const record = (entry) => {
     lines.push(`### ${entry.title}`, `Status: ${entry.status}${entry.stale ? ' · STALE' : ''}${entry.outcome && entry.kind === 'lesson' ? ` · Outcome: ${entry.outcome}` : ''}`, entry.body || '');
     lines.push(`Updated: ${entry.updated_at || 'No date recorded'} · version ${entry.version || 'Not recorded'}`, `Author: ${person(entry.author_id).name}`);

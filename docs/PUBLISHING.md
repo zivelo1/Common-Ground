@@ -20,12 +20,12 @@ The final package uses `PUBLIC_FILES.txt` as an exact relative-path allowlist an
 
 | Category | Candidate files |
 | --- | --- |
-| Application | `app.py`, `store.py`, `attachments.py`, `backups.py`, `dictation.py`, `launch.py`, `cli.py`, `mcp.py`, `adapter_controller.py`, `adapter_runner.py` |
+| Application | `app.py`, `store.py`, `branding.py`, `attachments.py`, `backups.py`, `dictation.py`, `launch.py`, `cli.py`, `mcp.py`, `adapter_controller.py`, `adapter_runner.py` |
 | Provider code | Individually listed source files under `providers/` |
 | Browser assets | Individually listed HTML, JavaScript, CSS, icons, and reviewed logo assets/provenance under `static/` |
 | Safe templates and dependencies | `config.example.json`, `providers.example.json`, `requirements.txt`, `requirements-dev.txt` |
 | Portable entry points | Reviewed `start.command` and `stop.command` |
-| Documentation | The public guides, README, contribution/security/change documents, generic `RULES.txt`, privacy audit, and screenshot gallery |
+| Documentation | The public guides, README, contribution/security/change documents, generic `RULES.txt` and `Risk.txt`, explicitly proposed boundary/history designs, privacy audit, and screenshot gallery |
 | Fictional examples and images | Individually reviewed museum fixtures and nine screenshots under `docs/screenshots/` |
 | Verification source | Individually reviewed synthetic tests and portable support/generator code under `tests/` |
 | Release metadata | `.gitignore`, the file list and manifest, MIT `LICENSE`, `THIRD_PARTY_NOTICES.md`, and `scripts/publication_check.py` |
@@ -61,6 +61,14 @@ Stop if it fails. Have the maintainer regenerate and review the manifest after a
 For the six additions prepared on 13 October, include the individually reviewed dictation, provider and test files as well as changed existing files. Review JavaScript test files explicitly too. Do not reuse an earlier manifest that omits these additions. After all source and documentation corrections, write the sorted exact file list first, then record every listed file's byte count and SHA-256 except the manifest itself. The list includes both `PUBLIC_FILES.txt` and `PUBLIC_MANIFEST.json`. Run the checker against those final bytes.
 
 The checker is a manifest/index check. It does not reject every unlisted file in a local working folder, inspect all Git history, or guarantee that every identifying detail is absent. Publish only the exact reviewed list, never the whole folder. A passing earlier suite is historical evidence; it does not validate corrections made later. Preserve the original preparation receipts privately and bind final checks to the actual release candidate.
+
+### Final local readiness record
+
+Keep this record private and bind it to the final candidate, not a historical file count. Record source revision/changes, exact allowlist and manifest hashes, archive hash, all required commands/results, worker count, failed evidence and designated independent review. A design document must be labeled proposed; it is not evidence that external isolation or automatic moderation exists.
+
+Run the packaged onboarding test against the same finalized allowlist. It creates an exact archive, checks every member/fingerprint, extracts to disposable local state, starts the extracted real app, and verifies a fresh synthetic human and agent can use their distinct identities. Provider controls remain unconfigured and no external provider is called. This verifies local clean-project onboarding only; it does not establish real desktop-client enrollment, physical microphone behavior or paid-provider operation.
+
+The readiness record must separately state what remains: independent review, unmeasured integrations/devices, any unresolved scope decision, and the human's publication choice. Passing local preparation does not authorize staging, committing, pushing, creating a repository or changing visibility. Follow each later step only under its explicit authorization.
 
 ## 4. Create an empty private GitHub repository
 

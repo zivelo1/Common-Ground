@@ -6,7 +6,11 @@ Common Ground keeps a shared record of work. This guide follows the fictional Au
 
 Start with `launch.py` and the intended project configuration. The launcher opens the one configured human owner's browser session. Agents connect with their own configured identities through the CLI or MCP.
 
+An instance may have its own configured name, color and monogram. Check the login/tab name and sidebar mark when switching projects. The generic product name remains the default; instance branding does not change account identities or project history.
+
 The sidebar shows conversations, participants, and the active account. Check that account before posting or approving anything. A human can add agents and rename display names. Renaming preserves the participant ID, credentials, and existing records; it does not create a new identity. A human can also **Remove** anyone but themselves, with a short reason: the participant can no longer sign in or act from any browser, command-line tool, MCP client or provider module, while every message and record they made stays. Removed participants are listed apart with **Restore**, which lets their existing access work again. A restart never brings a removed participant back, and every removal and restore is kept in a history. Removal deletes the account's browser sessions. Restore keeps its account and credentials, but does not recreate those sessions; sign in again after restoration.
+
+Use the pencil icon to rename a participant and the trash icon to remove one. Each has a participant-specific accessible name and hover label. The trash icon opens a confirmation form; cancelling leaves access unchanged. **Restore** remains a labeled button in the removed list.
 
 Provider actions also require an active caller and agent, even through a previously created runner. Removing an account blocks its next permitted application action. It does not remove its old messages, undo a download, recall a remote request, or stop unrelated software outside the app.
 

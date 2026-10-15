@@ -6,6 +6,7 @@ PUBLIC_FILES.txt
 PUBLIC_MANIFEST.json
 README.md
 RULES.txt
+Risk.txt
 SECURITY.md
 THIRD_PARTY_NOTICES.md
 adapter_controller.py
@@ -13,13 +14,16 @@ adapter_runner.py
 app.py
 attachments.py
 backups.py
+branding.py
 cli.py
 config.example.json
 dictation.py
 docs/ARCHITECTURE.md
 docs/CONFIGURATION.md
 docs/INTEGRATIONS.md
+docs/LOSSLESS_HISTORY.md
 docs/PRIVACY_AUDIT.md
+docs/PROJECT_BOUNDARIES.md
 docs/PUBLISHING.md
 docs/USER_GUIDE.md
 docs/screenshots/README.md
@@ -73,6 +77,7 @@ tests/test_dictation.py
 tests/test_display_cards_browser.py
 tests/test_file_claims.py
 tests/test_file_claims_browser.py
+tests/test_instance_branding.py
 tests/test_knowledge_check_browser.py
 tests/test_knowledge_checks.py
 tests/test_launcher_port.py
@@ -94,6 +99,7 @@ tests/test_personal_persistence.py
 tests/test_provider_adapters.py
 tests/test_provider_logos.py
 tests/test_provider_logos_browser.py
+tests/test_public_package_onboarding.py
 tests/test_publication_check.py
 tests/test_qa_hygiene.py
 tests/test_rhombus_colours_browser.py

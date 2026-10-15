@@ -88,7 +88,12 @@ class ParticipantRenameBrowserTests(unittest.TestCase):
             # Remove sits beside Rename for everyone but the viewer
             check("a_human_sees_rename_for_every_participant",
                   labels == ["Rename Synthetic human", "Rename Agent A", "Remove Agent A"])
-            people.nth(1).get_by_role("button", name="Rename Agent A").click()
+            rename = people.nth(1).get_by_role("button", name="Rename Agent A", exact=True)
+            check("rename_is_an_accessible_edit_icon_with_a_hover_label",
+                  rename.inner_text() == "" and rename.get_attribute("title") == "Rename Agent A"
+                  and rename.locator('svg[aria-hidden="true"][focusable="false"] path').count() == 1)
+            rename.focus()
+            rename.press("Enter")
             dialog = page.locator("dialog[open]")
             check("the_dialog_starts_with_the_current_name", dialog.get_by_label("New display name").input_value() == "Agent A")
             dialog.get_by_label("New display name").fill("Agent  Alpha")
