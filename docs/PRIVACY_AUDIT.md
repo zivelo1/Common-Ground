@@ -25,6 +25,14 @@ The final review also checks public text for identifying project references, val
 
 No Git history existed when this package was first prepared. This does not certify future commits. Before changing repository visibility, inspect every tracked file and all earlier commits. Deleting a file in a later commit does not remove it from earlier history.
 
+## History-feature preparation — 16 October 2026
+
+The next generic candidate adds the conversation index, retained-edit reading and scoped gzip/JSON downloads, with 114 explicitly listed public files. The complete author application/browser suite passed 350 tests; the existing manifest checker and exact archive member/byte comparison passed. This is author evidence, not a substitute for final independent privacy review of these exact bytes.
+
+Audit the public repository's actual reachable history separately from a development or installed-instance checkout. The latter can retain private historical content and must not supply Git metadata to a public release. The public-file archive intentionally excludes `.git`, instance state, local evidence and private configuration. Inspect commit author/committer fields and attribution trailers too; a generic current tree does not establish anonymous historical metadata.
+
+External host isolation remains deferred. Nothing in this package changes desktop-agent permissions or installs a virtual machine. Provider calls and microphone hardware remain subject to the existing unmeasured-integration limits.
+
 ## Six-addition preparation review — 13 October 2026
 
 An independent disposable generic fixture combined the five communication units with the exact provider patch. Its original combined source passed 320 application/browser tests with no skips. This reproduced the author's combined-suite count. It is a baseline check of those bytes, not acceptance of later permission, message-fetch or documentation corrections.

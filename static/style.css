@@ -264,6 +264,8 @@ dialog::backdrop { background: rgba(16, 20, 38, .45); backdrop-filter: blur(3px)
 .dialog-header h2 { font-size: 20px; letter-spacing: -.4px; line-height: 1.3; padding-top: 3px; }
 .dialog-description { color: var(--muted); font-size: 12px; margin-top: 8px; }
 .dialog-body { padding: 23px 25px 25px; }
+.conversation-index-dialog > .dialog-header { position: sticky; top: 0; z-index: 1; background: var(--surface); padding-bottom: 16px; border-bottom: 1px solid var(--line); }
+.conversation-index-record .index-excerpt { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; overflow-wrap: anywhere; }
 .form-field { display: block; margin-bottom: 17px; }
 .form-field > label { display: block; margin-bottom: 7px; font-size: 12px; font-weight: 600; }
 .form-field textarea { min-height: 94px; }

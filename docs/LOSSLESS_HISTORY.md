@@ -1,66 +1,52 @@
-# Concise discussion with lossless history
+# Conversation index and retained history
 
-Status: design for review. This preparation adds no automatic moderation, model call, scheduler, service, migration or message-deletion path. The retained record stays authoritative.
+The conversation index is a navigation view built from the retained database. It does not replace messages, invent semantic summaries, delete repetition or approve decisions. Reading an index, full record or archive records retrieval but does not acknowledge reading.
 
-## What exists today
+## Browse one conversation
 
-The real store preserves messages and accepted edits, participant identities and rename/removal history, knowledge versions, decision histories and selected source snapshots. Knowledge can name sources, conflicts, outcome and status. Source observations can mark linked knowledge stale. Removal deactivates access and retains contributions. See [Architecture](ARCHITECTURE.md).
+In **Project brief**, select one conversation, then choose **Browse conversation index**. The index shows message IDs, author names, versions, dates and shortened excerpts. **Read original and edits** opens the complete retained original, current message and accepted edit versions. Excerpts are navigation aids, not lossless summaries.
 
-The joining brief is a bounded projection: it caps items and recent messages, clips text, and reports omissions. Browser/provider projections have further documented differences. A short brief is not lossless compression. Search is bounded too. Account export includes visible messages and several histories, but not every internal table or attachment byte. Verified database backups and original source/Git records remain separate evidence.
+Pages contain at most 200 messages. The view shows how many messages have been collected out of the conversation total. Every page is bound to the same fingerprint of that conversation's messages, edits, current members, message authors, tasks, decisions, knowledge and sources. A change behind the cursor also invalidates collection. Old rows remain visible on a conflict; use **Restart index** to collect a consistent view. A fingerprint proves identity, not truth.
 
-## Proposed record and index
+The API separates `page_reaches_end` from `complete`: the final page can reach the end while omitting earlier messages. `omitted_before`, `remaining`, `returned`, `total` and `high_water` describe the response. Only a response covering the entire conversation has `complete: true`. A client combining pages must start at zero, retain one snapshot, and check its collected count against the total. Global message IDs can have gaps between conversations.
 
-Keep every original message, stored attachment, accepted edit version, author identity, timestamp and audience. Keep original documents and Git history. Never replace them with a summary or silently approve a condensed statement.
+Each request checks current membership. A private index includes only that conversation; public source records are not silently mixed into it. Revoked membership refuses subsequent reads. Sources are existing indexed observations, not freshly read files.
 
-Add a derived, rebuildable index per conversation:
+## Review suggestions
 
-| Field | Purpose |
-| --- | --- |
-| Conversation and stable entry ID | Preserve audience and derived-entry identity |
-| Kind | Fact, outcome, failure, conflict, decision, task or open question |
-| Short statement | A navigation aid; explicitly an authored claim |
-| Source references | Exact message ID/version, knowledge/decision/task ID/version, or approved source ID/fingerprint and location |
-| Owner/current state | Resolve from the actual task or approved decision |
-| Coverage | First/last indexed position, observed change cursor, exclusions and incomplete pages |
-| Freshness | Check time, observed version/hash, stale/missing/unknown reasons |
-| Conflicts | Both positions and their evidence; unresolved conflicts stay visible |
-| Attribution/versions | Who changed the entry and the retained prior version |
+The index identifies exact repeated message text, stale/disputed/conflicting knowledge and unfinished tasks with inactive owners. It preserves the original records and current decision statuses. A suggestion cannot close a task, approve a decision, hide disagreement, change authorship or send a message as the human. It does not infer whether different sentences mean the same thing.
 
-Do not duplicate task/decision ownership or approval into another writable authority. Resolve these fields from existing records at view time. A hash proves identity, not truth. Incoming content cannot grant permission to run tools or widen its audience.
+Example: two identical catalogue instructions produce one repetition suggestion linking both message IDs. Both full originals remain readable, and any proposed decision still needs the human's approval.
 
-## Proposed no-model workflow
+## Download the retained conversation
 
-1. A participant explicitly requests reconciliation for one authorized conversation. A message never automatically invokes a model or adds a service.
-2. Read pages to a recorded high-water position and change cursor, including edits. If a source changes during collection, preserve the first result and retry a consistent collection. Mixed versions cannot establish completeness.
-3. Build a deterministic index of metadata, links and existing structured knowledge. Participants supply semantic claims through proposed knowledge; software does not invent meaning from unstructured text.
-4. Keep actual knowledge status, conflicts and stale reasons. A changed/missing reference makes an entry stale/unknown; it never removes the old claim or source version.
-5. Present evidence, outcomes, failures, conflicts, owners and decisions with coverage/omission counts. A collapsed item links to its original accessible version. Private derived entries cannot leak titles, counts or identifiers to another audience.
-6. Suggested moderation flags repetitions, unresolved questions or stale ownership for a participant decision. It cannot delete text, suppress disagreement, change authorship, close tasks, approve decisions or post as the human. Personal collapse/mute preferences affect presentation only.
-7. Version and attribute accepted index changes. A human-only moderation policy may later choose presentation rules; it cannot override membership or approvals. Retain old policies and decisions.
+**Download retained conversation** exports a deterministic gzip-compressed JSON envelope. It contains one transaction's complete records within the following declared scope:
 
-Example: “catalogue import succeeded” links to one task version. A later correction reports missing items. Retain the first outcome/source, link the contradiction, and show current task state. Never rewrite the earlier message to make history consistent.
+- Current messages, their retained original bodies and accepted edits.
+- Stored image attachment bytes, encoded as base64, and their recorded metadata.
+- Current tasks, decisions, knowledge and configured source observations in the selected conversation.
+- Retained decision, knowledge and source histories belonging to those records.
+- Conversation identity and current identity metadata for message authors.
 
-This is indexed retention, not a claim that shorter text preserves every meaning. A compressed archive is lossless only if decoding reproduces exact original bytes and metadata within its declared scope. A projected source snapshot cannot recreate unindexed file content.
+The envelope records its format version, per-table counts, scope, exclusions and a SHA-256 fingerprint of the canonical payload. Decoding verifies the fingerprint and size limit; it does not authenticate authors or prove the content true. Unicode text and attachment bytes are retained exactly as stored. Repeated exports of unchanged data have identical compressed bytes.
 
-## Acceptance before implementation is accepted
+The archive excludes credentials, browser sessions, personal drafts/preferences, other conversations, instance-wide participant rename/removal histories, Rules, read receipts and file claims. It also excludes original external files and Git objects; source snapshots retain only the observations already stored. This scoped download is not a full instance backup and has no import/restore endpoint. Use the existing verified database backup workflow for full-instance recovery and preserve original documents/Git separately.
 
-Use fictional records through the real store and register expectations first:
+An index binds at most 128 MiB of canonical record data. An archive has a 128 MiB uncompressed envelope limit; attachment base64 counts toward it. Oversize requests fail explicitly rather than returning an apparently complete partial archive. Archive collection holds a database transaction while encoding, so large exports can delay writers; perform them deliberately.
 
-- Round-trip original messages, attachment bytes, accepted edits, stable identities and retained histories within the declared archive scope. Include non-ASCII text, long fields and restored participants.
-- Exceed message-page and brief limits. Verify gap-free coverage and explicit omissions; the first page cannot certify full history.
-- Edit behind the high-water position; change, remove or replace a source during collection. Mark stale/incomplete or retry consistently; retain readable original versions.
-- Keep contradictory claims and separate evidence visible. No automatic winner, approval, task closure or authority change.
-- Preserve rename, removal/restoration, authorship IDs and last-human-administrator protection.
-- Refuse excluded identities across index, search, export, conflicts and briefs. Test wrong-conversation links and later membership revocation.
-- Interrupt writes, compete reconciliations, restart and rebuild. Preserve originals, refuse stale writes and reproduce the declared index from frozen inputs.
-- Keep API/browser/provider omissions explicit. An essential failure or skip leaves the feature unvalidated.
+## CLI and MCP
 
-An implementation needs versioned index storage and membership-checked `store.py`/`app.py` endpoints, CLI/MCP reading support and browser views. These are future scope. Reuse knowledge, task, decision and source histories. Define exact migration, recovery and resource limits in that later package.
+```sh
+python3 -B cli.py --config config.json --as atlas conversation-index --channel workspace
+python3 -B cli.py --config config.json --as atlas conversation-index --channel workspace --after 200 --snapshot RETURNED_FINGERPRINT
+python3 -B cli.py --config config.json --as atlas conversation-record --channel workspace --message-id 42
+python3 -B cli.py --config config.json --as atlas conversation-archive --channel workspace --output conversation-history.json.gz
+```
 
-## Decisions needed
+Use the actual returned `next_after` and fingerprint; the numbers above illustrate arguments only. The archive command verifies decoding before creating a private file with mode 0600, refuses an existing destination and reports errors. Keep private downloads private. MCP provides `collab_conversation_index` and `collab_conversation_record` under the configured participant identity; archive downloading is available through the browser or CLI.
 
-The human chooses whether automatic moderation means presentation suggestions only, who accepts them, and whether semantic summarization is wanted. Semantic summarization needs an explicitly authorized author/model workflow; a deterministic index cannot promise it. Retention and physical deletion are separate decisions. This design preserves originals and proposes no deletion.
+## Verification and limitations
 
-Bottom line: retain lossless records and make concise views honest about sources and coverage. Automatic semantic summaries are not implemented or authorized by this design.
+The regression suite uses fictional records through the real store, local HTTP, CLI, MCP and browser. It checks pagination beyond 200 messages, edits behind a cursor, wrong-channel links, membership revocation, private-channel separation, unchanged approval states, Unicode, retained edit versions, exact attachment bytes, archive corruption and decompression limits. Browser checks exercise restart after a changed snapshot, full-record reading and download.
 
-Action items: human owner — accept/amend presentation and moderation scope; implementing participant — build the agreed index after design approval; reviewer — challenge completeness, privacy and recovery; watch — bounded views and partial projections cannot certify full history.
+No schema migration, model call, background service or automatic semantic moderation is added. The database remains authoritative and the index is rebuilt on demand. Source refresh, provider calls and external host isolation are separate operations. Full package verification and independent review must finish before release acceptance; these feature descriptions are not a live-installation receipt.

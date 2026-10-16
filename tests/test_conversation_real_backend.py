@@ -101,6 +101,52 @@ class RealConversationTests(unittest.TestCase):
     def saved(self, page) -> None:
         page.wait_for_function("() => document.querySelector('#personal-save-status')?.dataset.saved === 'true'")
 
+    def test_conversation_index_pages_originals_and_changed_snapshot(self) -> None:
+        rows = self.seed(203)
+        private = self.request("human", "POST", "/api/channels",
+            {"title": "Synthetic hidden", "members": ["outsider"]})
+        self.seed(1, private["id"], actor="outsider")
+        page = self.page()
+        page.locator('[data-view="brief"]').click()
+        page.locator('#project-scope').select_option('workspace')
+        page.get_by_role('button', name='Browse conversation index', exact=True).click()
+        index = page.get_by_role('dialog', name='Conversation index', exact=True)
+        index.get_by_text('200 of 203 messages shown.', exact=False).wait_for()
+        self.assertEqual(index.locator('article.history-entry').count(), 200)
+        self.assertEqual(index.locator('article.history-entry time').first.get_attribute('datetime'), rows[0]['created_at'])
+        self.assertNotIn('Synthetic hidden', index.inner_text())
+        index.get_by_role('button', name='Read original and edits').first.click()
+        original = page.get_by_role('dialog', name='Original message and edits', exact=True)
+        original.get_by_role('heading', name='Retained original', exact=True).wait_for()
+        self.assertIn(rows[0]['body'], original.inner_text())
+        original.get_by_role('button', name='Close dialog', exact=True).click()
+        # A structured change also invalidates paging; old rows stay visible until explicitly restarted.
+        self.request('human', 'POST', '/api/tasks',
+            {'channel_id': 'workspace', 'title': 'Synthetic new task', 'owner_id': 'human'})
+        index.get_by_role('button', name='Read next page', exact=True).click()
+        index.get_by_text('Conversation changed;', exact=False).wait_for()
+        self.assertEqual(index.locator('article.history-entry').count(), 200)
+        index.get_by_role('button', name='Restart index', exact=True).click()
+        index = page.get_by_role('dialog', name='Conversation index', exact=True)
+        index.get_by_text('200 of 203 messages shown.', exact=False).wait_for()
+        index.get_by_role('button', name='Read next page', exact=True).click()
+        index.get_by_text('203 of 203 messages shown.', exact=False).wait_for()
+        self.assertEqual(index.locator('article.history-entry').count(), 203)
+        self.assertTrue(index.get_by_role('button', name='All messages shown', exact=True).is_disabled())
+        self.assertEqual(self.errors, [])
+        self.assertEqual(self.external, [])
+        with page.expect_download() as download_info:
+            index.get_by_role('button', name='Download retained conversation', exact=True).click()
+        archive_path = self.folder / 'conversation-history.json.gz'
+        download_info.value.save_as(archive_path)
+        from history_archive import decode
+        from store import MAX_INDEX_BYTES
+        archive = decode(archive_path.read_bytes(), MAX_INDEX_BYTES)
+        self.assertEqual(archive['counts']['messages'], 203)
+        self.assertNotIn('Synthetic hidden', json.dumps(archive))
+        index.evaluate('(element) => { element.scrollTop = 0; }')
+        page.screenshot(path=str(evidence_root() / 'conversation_index.png'), full_page=True)
+
     def test_long_history_acknowledges_visible_latest_and_hidden_channel_stays_unread(self) -> None:
         rows = self.seed(410)
         page = self.page(block_read=True)

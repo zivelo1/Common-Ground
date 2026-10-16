@@ -173,8 +173,8 @@ function statusBadge(status) {
   return node('span', `status-badge status-${status}`, label);
 }
 
-async function api(path, data) {
-  const options = { credentials: 'same-origin', headers: { Accept: 'application/json' } };
+async function api(path, data, binary = false) {
+  const options = { credentials: 'same-origin', headers: { Accept: binary ? 'application/gzip' : 'application/json' } };
   if (data !== undefined) {
     options.method = 'POST';
     options.headers['Content-Type'] = 'application/json';
@@ -184,6 +184,7 @@ async function api(path, data) {
   let response;
   try { response = await fetch(path, options); }
   catch { throw new Error('Cannot reach the local server. Keep this page open and try again.'); }
+  if (binary && response.ok) return response.blob();
   let result;
   try { result = await response.json(); }
   catch { throw new Error('The local server returned an unreadable response.'); }
@@ -1626,7 +1627,7 @@ function dialogBase(title, description) {
   const titleElement = node('h2', '', title);
   titleElement.id = `dialog-heading-${++app.dialogSequence}`;
   copy.append(titleElement);
-  if (description) { const text = node('p', 'dialog-description', description); text.id = 'dialog-description'; copy.append(text); dialog.setAttribute('aria-describedby', text.id); }
+  if (description) { const text = node('p', 'dialog-description', description); text.id = `dialog-description-${app.dialogSequence}`; copy.append(text); dialog.setAttribute('aria-describedby', text.id); }
   heading.append(copy, button('×', 'icon-button', () => dialog.close()));
   heading.lastElementChild.setAttribute('aria-label', 'Close dialog');
   dialog.setAttribute('aria-labelledby', titleElement.id);
@@ -2083,6 +2084,8 @@ function renderJoiningBrief(board, brief) {
   const generated = node('span', '', `Built ${formatDateTime(brief.generated_at)}`); generated.id = 'brief-generated';
   metadata.append(generated, node('span', '', app.projectScope ? projectChannelLabel(app.state.channels.find((item) => item.id === app.projectScope)) : 'Only data visible to your account'));
   board.append(metadata);
+  if (app.projectScope) board.append(button('Browse conversation index', 'button',
+    () => showConversationIndex(app.projectScope)));
   if (brief.knowledge_check?.configured) board.append(knowledgeCheckSection(brief.knowledge_check));
   const stale = brief.stale || [];
   const disputed = brief.disputed || [];
@@ -2282,6 +2285,86 @@ function showKnowledgeForm(entry) {
 function showKnowledgeDetails(entry) {
   if (!entry.body) { showKnowledgeHistory(entry); return; }
   const { dialog, body } = dialogBase('Knowledge record', entry.title); body.append(knowledgeCard(entry)); dialog.showModal();
+}
+async function showConversationRecord(channelId, messageId) {
+  const { dialog, body } = dialogBase('Original message and edits', `Message #${messageId}`);
+  body.append(loading('Reading the retained record…')); dialog.showModal();
+  try {
+    const result = await api(`/api/conversation-record?channel_id=${encodeURIComponent(channelId)}&message_id=${messageId}`);
+    if (!dialog.isConnected) return;
+    body.replaceChildren(node('h3', '', 'Current version'), formattedMessage(result.message.body));
+    body.append(node('h3', '', result.original_recorded ? 'Retained original' : 'Earliest available body'),
+      node('p', 'workflow-note', result.original_recorded ? 'The original remains unchanged.' : 'This message predates original-version tracking.'),
+      formattedMessage(result.original_body));
+    for (const edit of result.edits) {
+      const item = node('section', 'history-entry');
+      item.append(node('h3', '', `Version ${edit.version_after} · ${formatDateTime(edit.edited_at)}`),
+        formattedMessage(edit.body_after)); body.append(item);
+    }
+    body.append(node('p', 'workflow-note', 'Retrieving this record does not acknowledge it as read.'));
+  } catch (error) { if (dialog.isConnected) body.replaceChildren(node('p', 'field-error', errorText(error))); }
+}
+async function showConversationIndex(channelId) {
+  const { dialog, body } = dialogBase('Conversation index', 'Originals stay retained. Review suggestions never approve or delete records.');
+  dialog.classList.add('conversation-index-dialog');
+  const summary = node('p', 'workflow-note');
+  const suggestions = node('section');
+  const records = node('section');
+  let after = 0;
+  let snapshot = null;
+  const more = button('Read first page', 'button', async () => {
+    more.disabled = true;
+    try {
+      const query = new URLSearchParams({ channel_id: channelId, after: String(after) });
+      if (snapshot) query.set('snapshot', snapshot);
+      const result = await api(`/api/conversation-index?${query}`);
+      if (!dialog.isConnected) return;
+      if (!snapshot) {
+        suggestions.append(node('h3', '', 'Review suggestions'));
+        for (const suggestion of result.suggestions) {
+          const text = suggestion.kind === 'exact_repetition'
+            ? `Repeated text in messages ${suggestion.message_ids.map((id) => `#${id}`).join(', ')}. Originals remain retained.`
+            : suggestion.kind === 'inactive_task_owner' ? 'An unfinished task has an inactive owner.'
+              : 'A knowledge record has stale evidence, a dispute or a conflict.';
+          suggestions.append(node('p', '', text));
+        }
+        if (!result.suggestions.length) suggestions.append(node('p', '', 'No structural review suggestions in this snapshot.'));
+      }
+      snapshot = result.snapshot;
+      after = result.next_after;
+      for (const message of result.messages) {
+        const item = node('article', 'history-entry conversation-index-record');
+        const timestamp = node('time', 'history-meta', formatDateTime(message.created_at));
+        timestamp.dateTime = message.created_at;
+        item.append(node('h3', '', `#${message.id} · ${message.author_name} · version ${message.version}`),
+          timestamp, node('p', 'index-excerpt', message.excerpt), button('Read original and edits', 'text-button',
+            () => showConversationRecord(channelId, message.id))); records.append(item);
+      }
+      const shown = records.children.length;
+      const complete = result.coverage.page_reaches_end && shown === result.coverage.total;
+      summary.textContent = `${shown} of ${result.coverage.total} messages shown. ${complete ? 'All current messages in this snapshot are covered.' : 'More messages remain.'} Excerpts are navigation aids.`;
+      more.textContent = result.coverage.page_reaches_end ? 'All messages shown' : 'Read next page';
+      more.disabled = result.coverage.page_reaches_end;
+    } catch (error) {
+      if (dialog.isConnected) {
+        summary.textContent = errorText(error);
+        body.append(button('Restart index', 'button', () => { dialog.close(); showConversationIndex(channelId); }));
+      }
+    }
+  });
+  const archive = button('Download retained conversation', 'button subtle', async () => {
+    archive.disabled = true;
+    try {
+      const blob = await api(`/api/conversation-archive?channel_id=${encodeURIComponent(channelId)}`, undefined, true);
+      const url = URL.createObjectURL(blob);
+      const link = node('a'); link.href = url; link.download = 'conversation-history.json.gz'; link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 0);
+    } catch (error) { if (dialog.isConnected) summary.textContent = errorText(error); }
+    finally { archive.disabled = false; }
+  });
+  body.append(summary, suggestions, records, more,
+    node('p', 'workflow-note', 'The compressed download retains this conversation’s originals, accepted edits, attachments and structured records. It excludes credentials, personal state, other conversations and external files.'), archive);
+  dialog.showModal(); more.click();
 }
 async function showKnowledgeHistory(entry) {
   const { dialog, body } = dialogBase('Knowledge history', entry.title); body.append(loading('Reading the local history…')); dialog.showModal();

@@ -97,8 +97,15 @@ Nothing starts a model on its own. Opening the workspace, reading a brief, recei
 | Sources and Rules | Explicit local source allowlists, bounded snapshots and fingerprints, human-maintained shared Rules |
 | Ownership | Optional task-linked file or directory claims, conflict checks, explicit release, and history; disabled until a work policy is configured |
 | Providers | Reviewable outbound requests, explicit generation or manual import, separate publication, limits, and durable run records |
+| History | Snapshot-bound conversation index, retained originals and edits, review suggestions, and a scoped compressed download |
 | Recovery | Consistent database backups, verification manifests, a human backup panel, and restore to a new file |
 | Access | Browser, command line, and MCP; account-scoped search and export; remove/restore participants while keeping their history |
+
+## Keep long conversations useful
+
+Choose a conversation in **Project brief**, then open **Browse conversation index**. Read attributed excerpts in pages, open the complete original and accepted edits, and review repeated text, stale knowledge or unfinished tasks with inactive owners. A changed record makes the view ask you to restart collection, so it does not silently mix old and new pages.
+
+**Download retained conversation** saves a compressed copy of that conversation's stored messages, accepted edits, attachments and declared structured histories. It preserves the stored text and bytes within its [documented scope](docs/LOSSLESS_HISTORY.md); it is not a semantic summary or a full-instance backup. Suggestions never delete messages, approve decisions or call a model. Private conversations retain their existing audience checks.
 
 ## Providers
 

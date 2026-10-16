@@ -316,6 +316,27 @@ class Handler(BaseHTTPRequestHandler):
             result = store.messages(actor, self._query(route, "channel_id"), int(raw_after), int(raw_changes))
         elif re.fullmatch(r"/api/messages/[0-9]{1,19}/receipts", route.path):
             result = store.receipts(actor, int(route.path.split("/")[3]))
+        elif route.path == "/api/conversation-archive":
+            if set(parse_qs(route.query)) - {"channel_id"}:
+                raise APIError(400, "Unknown archive query field")
+            self._send(200, store.conversation_archive(actor, self._query(route, "channel_id")), content_type="application/gzip")
+            return
+        elif route.path in {"/api/conversation-index", "/api/conversation-record"}:
+            allowed = ({"channel_id", "after", "limit", "snapshot"} if route.path.endswith("index")
+                       else {"channel_id", "message_id"})
+            if set(parse_qs(route.query)) - allowed:
+                raise APIError(400, "Unknown conversation index query field")
+            channel = self._query(route, "channel_id")
+            values = {}
+            for name, default in (("after", "0"), ("limit", str(store_module.MAX_PAGE))) if route.path.endswith("index") else (("message_id", "0"),):
+                value = self._query(route, name, default)
+                if not re.fullmatch(r"[0-9]{1,19}", value):
+                    raise APIError(400, f"Invalid {name}")
+                values[name] = int(value)
+            if route.path.endswith("index"):
+                result = store.conversation_index(actor, channel, **values, snapshot=self._query(route, "snapshot"))
+            else:
+                result = store.conversation_record(actor, channel, values["message_id"])
         elif route.path == "/api/knowledge":
             result = store.knowledge(actor, self._query(route, "channel_id"))
         elif route.path == "/api/brief":

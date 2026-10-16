@@ -20,12 +20,12 @@ The final package uses `PUBLIC_FILES.txt` as an exact relative-path allowlist an
 
 | Category | Candidate files |
 | --- | --- |
-| Application | `app.py`, `store.py`, `branding.py`, `attachments.py`, `backups.py`, `dictation.py`, `launch.py`, `cli.py`, `mcp.py`, `adapter_controller.py`, `adapter_runner.py` |
+| Application | `app.py`, `store.py`, `history_archive.py`, `branding.py`, `attachments.py`, `backups.py`, `dictation.py`, `launch.py`, `cli.py`, `mcp.py`, `adapter_controller.py`, `adapter_runner.py` |
 | Provider code | Individually listed source files under `providers/` |
 | Browser assets | Individually listed HTML, JavaScript, CSS, icons, and reviewed logo assets/provenance under `static/` |
 | Safe templates and dependencies | `config.example.json`, `providers.example.json`, `requirements.txt`, `requirements-dev.txt` |
 | Portable entry points | Reviewed `start.command` and `stop.command` |
-| Documentation | The public guides, README, contribution/security/change documents, generic `RULES.txt` and `Risk.txt`, explicitly proposed boundary/history designs, privacy audit, and screenshot gallery |
+| Documentation | The public guides, README, contribution/security/change documents, generic `RULES.txt` and `Risk.txt`, the implemented scoped history guide and deferred external-boundary design, privacy audit, and screenshot gallery |
 | Fictional examples and images | Individually reviewed museum fixtures and nine screenshots under `docs/screenshots/` |
 | Verification source | Individually reviewed synthetic tests and portable support/generator code under `tests/` |
 | Release metadata | `.gitignore`, the file list and manifest, MIT `LICENSE`, `THIRD_PARTY_NOTICES.md`, and `scripts/publication_check.py` |
@@ -69,6 +69,14 @@ Keep this record private and bind it to the final candidate, not a historical fi
 Run the packaged onboarding test against the same finalized allowlist. It creates an exact archive, checks every member/fingerprint, extracts to disposable local state, starts the extracted real app, and verifies a fresh synthetic human and agent can use their distinct identities. Provider controls remain unconfigured and no external provider is called. This verifies local clean-project onboarding only; it does not establish real desktop-client enrollment, physical microphone behavior or paid-provider operation.
 
 The readiness record must separately state what remains: independent review, unmeasured integrations/devices, any unresolved scope decision, and the human's publication choice. Passing local preparation does not authorize staging, committing, pushing, creating a repository or changing visibility. Follow each later step only under its explicit authorization.
+
+## Preserve the public Git ancestry
+
+An application-instance checkout can contain private project material in old blobs, commit messages or author metadata even when its current allowlisted files are generic. Never transfer that checkout's `.git` directory or use its commits as parents of a public release.
+
+For an existing public repository, prepare updates in its own audited ancestry and copy only the exact reviewed public-file list. Compare the actual remote branch and any tags with the audited commits; local tracking refs alone can be stale. Review author/committer names, email addresses, commit messages, attribution trailers and historical blobs as well as the current tree. A public account handle or no-reply address still identifies an account; it is not anonymous history. Real personal contact details require the maintainer's explicit decision and block an anonymous-history claim.
+
+Do not rewrite or force-push history as a routine cleanup. Preserve the evidence, characterize any prior disclosure, and obtain a concrete maintainer decision before an irreversible history change. Removing a local line does not recall an already public copy.
 
 ## 4. Create an empty private GitHub repository
 

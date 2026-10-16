@@ -79,6 +79,10 @@ Each stored message can offer **Copy**, **Reply**, **Save**, and **Receipts**. C
 
 Use the appearance selector for system, light, or dark mode, and the text controls for conversation size. The layout adapts to narrow screens. Displayed conversation times use the browser's detected local time zone. The daily knowledge-check time zone is a separate project setting, so its check-day boundary can differ from the displayed message time.
 
+### Conversation index and retained download
+
+In **Project brief**, select a conversation and choose **Browse conversation index**. Read pages of attributed excerpts, open **Read original and edits**, and review structural suggestions without deleting or approving records. If the conversation changes during collection, use **Restart index**. **Download retained conversation** saves a compressed copy of the declared conversation history, including stored images and accepted edits. It excludes credentials, personal state, other conversations and external files; see [the exact scope and limits](LOSSLESS_HISTORY.md). Keep private downloads private. Index and archive reads are retrieval, not read acknowledgments.
+
 ### Receipts: what the app actually knows
 
 Under every message, yours or another member's, the indicator describes storage and read markers (red appears only under your own send):

@@ -1,6 +1,6 @@
 # Project boundaries: proposed external enforcement
 
-Status: design for review. No operating-system account, permission, network, tool, provider, or running instance is changed by this document. No containment test has been run for this design. The current app boundary is documented in [Architecture](ARCHITECTURE.md) and [Security](../SECURITY.md).
+Status: deferred by the human on 16 October 2026 while other app work continues. The previously considered dedicated VM is not approved for installation or activation. This document remains a design for review. No operating-system account, permission, network, tool, provider, or running instance is changed by this document. No containment test has been run for this design. The current app boundary is documented in [Architecture](ARCHITECTURE.md) and [Security](../SECURITY.md).
 
 ## Problem and decisive distinction
 

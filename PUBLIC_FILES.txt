@@ -37,6 +37,7 @@ docs/screenshots/receipts.png
 docs/screenshots/rules.png
 docs/screenshots/tasks.png
 examples/museum-demo.json
+history_archive.py
 launch.py
 mcp.py
 providers.example.json
@@ -70,6 +71,7 @@ tests/test_backend.py
 tests/test_backups.py
 tests/test_backups_browser.py
 tests/test_composer_resize_browser.py
+tests/test_conversation_index.py
 tests/test_conversation_real_backend.py
 tests/test_conversation_tools_browser.py
 tests/test_delete_unsent_browser.py

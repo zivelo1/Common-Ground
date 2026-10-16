@@ -1,6 +1,7 @@
 """Participant-scoped, append-audited SQLite collaboration storage."""
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import os
@@ -22,6 +23,7 @@ import attachments
 import backups
 import branding
 import dictation
+import history_archive
 
 DEFAULT_LISTEN_PORT = 0
 MAX_TCP_PORT = 65535
@@ -1222,6 +1224,171 @@ class Store:
             db.execute("INSERT INTO decisions VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)", tuple(values.values()))
             self._history(db, values["id"], actor, None, values)
         return values
+
+    def conversation_index(self, actor, channel_id, *, after=0, limit=MAX_PAGE, snapshot=None):
+        """Rebuild a scoped navigation index in one snapshot; never replace its source records.
+
+        A changed message behind the page cursor must invalidate subsequent pages.
+        Global message IDs are intentionally not treated as consecutive channel IDs.
+        """
+        if type(after) is not int or not 0 <= after <= MAX_SQLITE_INTEGER:
+            raise APIError(400, "Invalid index cursor")
+        if type(limit) is not int or not 1 <= limit <= MAX_PAGE:
+            raise APIError(400, "Invalid index page limit")
+        if snapshot is not None and (not isinstance(snapshot, str) or not re.fullmatch(r"[a-f0-9]{64}", snapshot)):
+            raise APIError(400, "Invalid index snapshot")
+        with self.connection(write=True) as db:
+            self._member(db, actor, channel_id)
+            digest = hashlib.sha256()
+            observed_bytes = 0
+
+            def bind(kind, row):
+                nonlocal observed_bytes
+                raw = json.dumps([kind, dict(row)], sort_keys=True, ensure_ascii=False,
+                                 separators=(",", ":")).encode("utf-8")
+                observed_bytes += len(raw)
+                if observed_bytes > MAX_INDEX_BYTES:
+                    raise APIError(413, "Conversation exceeds the index resource limit")
+                digest.update(raw + b"\n")
+
+            # Only this conversation's rows affect either its fingerprint or suggestions.
+            repeats = {}
+            total = 0
+            high_water = 0
+            for row in db.execute("SELECT * FROM messages WHERE channel_id=? ORDER BY id", (channel_id,)):
+                bind("message", row)
+                repeats.setdefault(row["body"], []).append(row["id"])
+                total += 1
+                high_water = row["id"]
+            for row in db.execute("""SELECT s.* FROM message_edit_state s JOIN messages m ON m.id=s.message_id
+                WHERE m.channel_id=? ORDER BY s.message_id""", (channel_id,)):
+                bind("message_version", row)
+            for row in db.execute("""SELECT e.* FROM message_edits e JOIN messages m ON m.id=e.message_id
+                WHERE m.channel_id=? ORDER BY e.id""", (channel_id,)):
+                bind("message_edit", row)
+            for row in db.execute("""SELECT p.id,p.name,p.active FROM members m
+                JOIN participants p ON p.id=m.participant_id WHERE m.channel_id=? ORDER BY p.id""", (channel_id,)):
+                bind("member", row)
+            for row in db.execute("""SELECT DISTINCT p.id,p.name,p.active FROM participants p
+                JOIN messages m ON m.author_id=p.id WHERE m.channel_id=? ORDER BY p.id""", (channel_id,)):
+                bind("message_author", row)
+            structured = {}
+            for table in ("tasks", "decisions", "knowledge", "sources"):
+                rows = [dict(row) for row in db.execute(
+                    f"SELECT * FROM {table} WHERE channel_id=? ORDER BY id", (channel_id,))]
+                for row in rows:
+                    bind(table, row)
+                structured[table] = rows
+            for row in db.execute("""SELECT DISTINCT p.id,p.active FROM participants p
+                JOIN tasks t ON t.owner_id=p.id WHERE t.channel_id=? ORDER BY p.id""", (channel_id,)):
+                bind("task_owner", row)
+            token = digest.hexdigest()
+            if snapshot is not None and snapshot != token:
+                raise APIError(409, "Conversation changed; restart index collection from the first page")
+            rows = db.execute("""SELECT id,author_id FROM messages WHERE channel_id=? AND id>?
+                ORDER BY id LIMIT ?""", (channel_id, after, limit + 1)).fetchall()
+            page = rows[:limit]
+            omitted_before = db.execute("SELECT COUNT(*) FROM messages WHERE channel_id=? AND id<=?",
+                                        (channel_id, after)).fetchone()[0]
+            reaches_end = len(rows) <= limit
+            self._retrieved(db, actor, page)  # freezes eligible edits, but is never a read acknowledgment
+            messages = []
+            for row in page:
+                message = self._message(db, row["id"], actor)
+                messages.append({key: message[key] for key in
+                                 ("id", "author_id", "author_name", "version", "created_at", "edited_at")}
+                                | {"excerpt": message["body"][:MAX_BRIEF_TEXT],
+                                   "body_shortened": len(message["body"]) > MAX_BRIEF_TEXT})
+            suggestions = [{"kind": "exact_repetition", "message_ids": ids, "action": "Review repetition; originals retained"}
+                           for ids in repeats.values() if len(ids) > 1]
+            knowledge = [self._knowledge_public(row) for row in structured["knowledge"]]
+            suggestions.extend({"kind": "knowledge_needs_review", "knowledge_id": row["id"],
+                                "status": row["status"], "stale": row["stale"]}
+                               for row in knowledge if row["stale"] or row["status"] == "disputed" or row["conflicts_with"])
+            active = {row[0] for row in db.execute("SELECT id FROM participants WHERE active=1")}
+            suggestions.extend({"kind": "inactive_task_owner", "task_id": row["id"], "owner_id": row["owner_id"]}
+                               for row in structured["tasks"] if row["status"] not in {"done", "rejected"}
+                               and row["owner_id"] not in active)
+            return {"channel_id": channel_id, "snapshot": token, "generated_at": now(),
+                    "coverage": {"after": after, "high_water": high_water, "total": total,
+                                 "returned": len(page), "omitted_before": omitted_before,
+                                 "remaining": total - omitted_before - len(page),
+                                 "page_reaches_end": reaches_end,
+                                 "complete": omitted_before == 0 and reaches_end,
+                                 "scope": "Current messages, retained edits, membership and structured records"},
+                    "messages": messages, "next_after": page[-1]["id"] if page else after,
+                    "tasks": structured["tasks"], "decisions": structured["decisions"],
+                    "knowledge": knowledge, "sources": [self._source_public(row) for row in structured["sources"]],
+                    "suggestions": suggestions,
+                    "limitations": ["Excerpts are navigation aids, not semantic summaries or lossless archives.",
+                        "Suggestions do not delete, approve, close tasks, or change authority.",
+                        "Sources are indexed observations; this request does not refresh their files.",
+                        "Original message and knowledge/decision/source histories remain authoritative."]}
+
+    def conversation_archive(self, actor, channel_id):
+        """Export one consistent, scoped retained ledger, never a copy of instance credentials."""
+        with self.connection(write=True) as db:
+            self._member(db, actor, channel_id)
+            tables = {}
+            observed = 0
+
+            def collect(name, query):
+                nonlocal observed
+                rows = []
+                for row in db.execute(query, (channel_id,)):
+                    value = dict(row)
+                    if "data" in value:
+                        value["data_base64"] = base64.b64encode(value.pop("data")).decode("ascii")
+                    observed += len(history_archive.canonical(value))
+                    if observed > MAX_INDEX_BYTES:
+                        raise APIError(413, "Conversation archive exceeds the resource limit")
+                    rows.append(value)
+                tables[name] = rows
+
+            for table in ("messages", "message_images", "tasks", "decisions", "knowledge", "sources"):
+                collect(table, f"SELECT * FROM {table} WHERE channel_id=? ORDER BY id")
+            for table in ("message_edit_state", "message_edits"):
+                order = "s.message_id,s.id" if table == "message_edits" else "s.message_id"
+                collect(table, f"SELECT s.* FROM {table} s JOIN messages m ON m.id=s.message_id WHERE m.channel_id=? ORDER BY {order}")
+            for table, owner, foreign_key in (("knowledge_history", "knowledge", "knowledge_id"),
+                                              ("decision_history", "decisions", "decision_id"),
+                                              ("source_history", "sources", "source_id")):
+                collect(table, f"SELECT h.* FROM {table} h JOIN {owner} s ON s.id=h.{foreign_key} WHERE s.channel_id=? ORDER BY h.id")
+            collect("participants", """SELECT DISTINCT p.id,p.name,p.kind,p.active FROM participants p
+                JOIN messages m ON m.author_id=p.id WHERE m.channel_id=? ORDER BY p.id""")
+            channel = dict(db.execute("SELECT * FROM channels WHERE id=?", (channel_id,)).fetchone())
+            payload = {"channel": channel, "tables": tables,
+                       "counts": {name: len(rows) for name, rows in tables.items()},
+                       "scope": "This conversation's retained messages, accepted edits, attachments and structured records/histories",
+                       "excluded": ["Credentials, sessions, private drafts, personal preferences and other conversations",
+                                    "External document files and Git objects; indexed source snapshots are retained as recorded",
+                                    "Instance-wide participant rename/removal history, Rules, read receipts and file claims"]}
+            try:
+                raw = history_archive.encode(payload, MAX_INDEX_BYTES)
+            except ValueError as error:
+                raise APIError(413, str(error)) from error
+            self._retrieved(db, actor, tables["messages"])
+            return raw
+
+    def conversation_record(self, actor, channel_id, message_id):
+        """Retrieve one full original and accepted edits after checking the current audience."""
+        if type(message_id) is not int or not 1 <= message_id <= MAX_SQLITE_INTEGER:
+            raise APIError(400, "Invalid message id")
+        with self.connection(write=True) as db:
+            self._member(db, actor, channel_id)
+            row = db.execute("SELECT id,author_id FROM messages WHERE id=? AND channel_id=?",
+                             (message_id, channel_id)).fetchone()
+            if row is None:
+                raise APIError(404, "Message not found")
+            self._retrieved(db, actor, [row])
+            original = db.execute("SELECT original_body FROM message_edit_state WHERE message_id=?",
+                                  (message_id,)).fetchone()
+            message = self._message(db, message_id, actor)
+            return {"channel_id": channel_id, "message": message,
+                    "original_body": original[0] if original is not None else message["body"],
+                    "original_recorded": original is not None,
+                    "edits": [dict(item) for item in db.execute(
+                        "SELECT * FROM message_edits WHERE message_id=? ORDER BY id", (message_id,))]}
 
     def decision_status(self, actor, ident, data):
         status = data.get("status")

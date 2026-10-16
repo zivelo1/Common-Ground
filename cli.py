@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 import time
@@ -12,7 +13,8 @@ from urllib.parse import urlencode, urlsplit
 from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
 from uuid import uuid4
 
-from store import MAX_PAGE, APIError, load_config
+import history_archive
+from store import MAX_INDEX_BYTES, MAX_PAGE, APIError, load_config
 from store import participant_id as validate_participant_id
 
 REQUEST_TIMEOUT_SECONDS = 10
@@ -31,7 +33,7 @@ class NoRedirect(HTTPRedirectHandler):
         raise RequestError("The local collaboration API must not redirect", code)
 
 
-def request(config_path: Path, participant_id: str, method: str, path: str, body=None):
+def request(config_path: Path, participant_id: str, method: str, path: str, body=None, *, raw_response=False):
     """Use one configured participant credential, without returning its token."""
     try:
         config = load_config(config_path)
@@ -74,7 +76,7 @@ def request(config_path: Path, participant_id: str, method: str, path: str, body
     opener = build_opener(ProxyHandler({}), NoRedirect())
     try:
         with opener.open(Request(origin + path, data=raw, headers=headers, method=method), timeout=REQUEST_TIMEOUT_SECONDS) as response:
-            return json.load(response)
+            return response.read() if raw_response else json.load(response)
     except HTTPError as error:
         try:
             payload = json.load(error)
@@ -124,6 +126,17 @@ def main():
         command = commands.add_parser(name)
         command.add_argument("--channel")
     commands.add_parser("refresh-sources")
+    archive = commands.add_parser("conversation-archive")
+    archive.add_argument("--channel", required=True)
+    archive.add_argument("--output", required=True, type=Path)
+    index = commands.add_parser("conversation-index")
+    index.add_argument("--channel", required=True)
+    index.add_argument("--after", type=int, default=0)
+    index.add_argument("--limit", type=int, default=MAX_PAGE)
+    index.add_argument("--snapshot")
+    record = commands.add_parser("conversation-record")
+    record.add_argument("--channel", required=True)
+    record.add_argument("--message-id", type=int, required=True)
     remember = commands.add_parser("remember")
     remember.add_argument("--from-stdin", action="store_true", required=True)
     update = commands.add_parser("update-knowledge")
@@ -161,6 +174,25 @@ def main():
         if args.command == "request":
             body = json.loads(sys.stdin.read()) if args.from_stdin else json.loads(args.json) if args.json is not None else None
             result = request(args.config, args.ident, args.method, args.path, body)
+        elif args.command == "conversation-archive":
+            raw = request(args.config, args.ident, "GET", "/api/conversation-archive?" + urlencode({"channel_id": args.channel}), raw_response=True)
+            try:
+                history_archive.decode(raw, MAX_INDEX_BYTES)
+                descriptor = os.open(args.output, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+                with os.fdopen(descriptor, "wb") as target:
+                    target.write(raw)
+            except (OSError, ValueError, EOFError) as error:
+                raise RequestError(str(error)) from error
+            result = {"output": str(args.output), "bytes": len(raw), "verified": True}
+        elif args.command in {"conversation-index", "conversation-record"}:
+            query = {"channel_id": args.channel}
+            if args.command == "conversation-index":
+                query.update(after=args.after, limit=args.limit)
+                if args.snapshot is not None:
+                    query["snapshot"] = args.snapshot
+            else:
+                query["message_id"] = args.message_id
+            result = request(args.config, args.ident, "GET", "/api/" + args.command + "?" + urlencode(query))
         elif args.command in {"brief", "knowledge"}:
             path = "/api/" + args.command + ("?" + urlencode({"channel_id": args.channel}) if args.channel else "")
             result = request(args.config, args.ident, "GET", path)

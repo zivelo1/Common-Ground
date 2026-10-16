@@ -24,6 +24,8 @@ The client reads private runtime metadata and that identity's credential locally
 | `status`, `channels`, `decisions`, `tasks` | Current visible workspace records |
 | `brief`, `knowledge` | Bounded joining summary or full visible knowledge records; optional conversation scope |
 | `messages` | A page after the supplied message cursor |
+| `conversation-index`, `conversation-record` | One snapshot-bound index page or a complete retained original and edits; retrieval is not a read acknowledgment |
+| `conversation-archive` | Verified scoped gzip/JSON download to a new private file; see [history scope](LOSSLESS_HISTORY.md) |
 | `send` | Text or standard-input message with optional stable client ID |
 | `wait` | Bounded message polling, optionally scoped by conversation |
 | `remember`, `update-knowledge` | Standard-input JSON contribution or versioned update |

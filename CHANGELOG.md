@@ -4,6 +4,13 @@
 
 This entry describes the prepared feature set. It is not a publication, restart or security-certification receipt. Physical microphones and paid-provider end-to-end calls have not been measured for this preparation.
 
+### Conversation history prepared — 16 October 2026
+
+- Per-conversation index with snapshot-bound pagination, explicit coverage, full retained originals/edits, and CLI/MCP reading support.
+- Review suggestions for exact repeated text, stale/disputed knowledge and inactive task owners; no deletion, approval, task closure or model calls.
+- Scoped lossless gzip/JSON downloads with attachment bytes, retained edit/knowledge/decision/source histories, payload fingerprints, size limits and explicit exclusions. Full database recovery remains separate.
+- External host isolation is deferred by the human. No VM, host policy or desktop application permissions are changed by this package. Failed sandbox prototype evidence is retained privately and excluded from release files.
+
 ### Six additions prepared — 13 October 2026
 
 - Distinct received/read signals: an agent's local conversation response counts returned new and edited messages. A response with neither advances nothing. CLI `wait` omits edited updates from its output, so an empty wait result is not proof of an empty internal response. Read does not mean understanding.
